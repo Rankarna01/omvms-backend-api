@@ -10,19 +10,16 @@ return new class extends Migration
     {
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
-            $table->string('nik')->unique(); // Primary ID Perusahaan
+            $table->string('nik')->unique();
             $table->string('full_name');
             $table->string('phone');
-            
-            // Relasi ke tabel departments
             $table->foreignId('department_id')->constrained('departments')->onDelete('cascade');
-            
-            $table->string('position'); // Jabatan
+            $table->string('position'); 
             $table->date('join_date');
-            $table->string('photo')->nullable(); // Foto profil (opsional)
+            $table->string('photo')->nullable(); 
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            $table->softDeletes(); // Fitur tong sampah (agar data tidak hilang permanen)
+            $table->softDeletes(); 
         });
     }
 

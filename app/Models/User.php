@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
-// 1. Pastikan import ini ada
-use Laravel\Sanctum\HasApiTokens; 
+use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes; // Tambahkan ini jika pakai SoftDeletes
 
 class User extends Authenticatable
 {
-    // 2. Tambahkan 'HasApiTokens' di dalam use
-    use HasApiTokens, HasFactory, Notifiable; 
+    // Tambahkan SoftDeletes jika di migration pakai $table->softDeletes();
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes; 
 
     /**
      * The attributes that are mass assignable.
@@ -22,9 +22,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',      // Pastikan role masuk fillable
-        'username',  // Pastikan username masuk fillable
-        'is_active', // Pastikan is_active masuk fillable
+        'role',
+        'username',
+        'is_active',
+        'employee_id', // <--- WAJIB DITAMBAHKAN (Agar controller bisa simpan ID ini)
     ];
 
     protected $hidden = [
@@ -36,4 +37,15 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    // ==========================================
+    // RELASI (WAJIB ADA agar Controller jalan)
+    // ==========================================
+
+    // Relasi ke tabel Employees
+    // Dipanggil oleh: User::with('employee') di controller
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
+    }
 }

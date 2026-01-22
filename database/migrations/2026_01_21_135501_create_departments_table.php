@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('departments', function (Blueprint $table) {
             $table->id();
-            $table->string('dept_code')->unique(); // IT, HR, FIN
-            $table->string('dept_name');           // Information Technology
+            $table->string('dept_code')->unique();
+            $table->string('dept_name');          
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
