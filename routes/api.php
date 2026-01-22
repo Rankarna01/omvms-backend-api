@@ -15,13 +15,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 
     // --- Module HR ---
-    
     // 1. Dropdown List (Pastikan method getDepartments ada di EmployeeController)
     Route::get('/hr/departments-list', [EmployeeController::class, 'getDepartments']);
     
     // 2. CRUD Departments (Pastikan File Controller sudah dibuat!)
     Route::apiResource('/hr/departments', DepartmentController::class);
-    
     // 3. CRUD Employees
     Route::apiResource('/hr/employees', EmployeeController::class);
+
+    
 });

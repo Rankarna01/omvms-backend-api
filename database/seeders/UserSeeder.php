@@ -10,9 +10,8 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Super Admin
+        // 1. Super Admin (HR System Owner - Full Akses)
         User::create([
-            'name' => 'Super Admin',
             'username' => 'superadmin',
             'email' => 'admin@omvms.com',
             'password' => Hash::make('password'),
@@ -20,19 +19,36 @@ class UserSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // 2. Admin Departemen
+        // 2. Admin OMVMS (Admin Pusat Voucher/Kantin)
         User::create([
-            'name' => 'Admin HR',
-            'username' => 'admin_hr',
-            'email' => 'hr@omvms.com',
+            'username' => 'admin_omvms',
+            'email' => 'pusat@omvms.com', // Email beda dari superadmin
             'password' => Hash::make('password'),
-            'role' => 'admin_dept',
+            'role' => 'admin_omvms',
             'is_active' => true,
         ]);
 
-        // 3. Karyawan
+        // 3. Admin Departemen (Admin IT - NEW ROLE)
+        // Tugas: Buat jadwal lembur, report departemen
         User::create([
-            'name' => 'Budi Santoso',
+            'username' => 'admin_it',
+            'email' => 'admin.it@omvms.com',
+            'password' => Hash::make('password'),
+            'role' => 'admin_dept', // Role untuk Admin Departemen
+            'is_active' => true,
+        ]);
+
+        // 4. Head Dept (Approval)
+        User::create([
+            'username' => 'head_it',
+            'email' => 'head@omvms.com',
+            'password' => Hash::make('password'),
+            'role' => 'head_dept',
+            'is_active' => true,
+        ]);
+
+        // 5. Karyawan (User biasa)
+        User::create([
             'username' => 'budi',
             'email' => 'budi@omvms.com',
             'password' => Hash::make('password'),
@@ -40,9 +56,8 @@ class UserSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // 4. Petugas Kantin (POS)
+        // 6. Petugas Kantin (POS)
         User::create([
-            'name' => 'Petugas Kantin',
             'username' => 'kasir',
             'email' => 'pos@omvms.com',
             'password' => Hash::make('password'),
