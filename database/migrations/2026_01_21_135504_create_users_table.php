@@ -25,8 +25,13 @@ return new class extends Migration
             $table->string('password');
             
             // 3. Role Enum
-            $table->enum('role', ['superadmin', 'admin_omvms', 'head_dept', 'employee', 'pos', 'admin_dept'])
-                  ->default('employee');
+            $table->enum('role', [
+    'admin_system', 
+    'hr_system', 
+    'admin_pos', 
+    'admin_dept', 
+    'employee'
+])->default('employee');
             
             // 4. Relasi ke Employee (PENTING UNTUK HR SYSTEM)
             // Pastikan tabel employees sudah terbuat sebelum tabel users dijalankan!

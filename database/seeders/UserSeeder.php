@@ -10,58 +10,61 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Super Admin (HR System Owner - Full Akses)
+        // Opsional: Kosongkan tabel user dulu agar tidak duplikat saat seeding ulang
+        // User::truncate(); 
+
+        // 1. Admin System (Pemilik Sistem / IT Support)
+        // Akses: Kelola User, Konfigurasi Global, Monitoring Error
         User::create([
-            'username' => 'superadmin',
-            'email' => 'admin@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'superadmin',
+            'name'      => 'System Administrator',
+            'username'  => 'sysadmin',
+            'email'     => 'admin@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'admin_system', 
             'is_active' => true,
         ]);
 
-        // 2. Admin OMVMS (Admin Pusat Voucher/Kantin)
+        // 2. HR System (Human Resources)
+        // Akses: Master Data Employee, Master Data Department, Reports
         User::create([
-            'username' => 'admin_omvms',
-            'email' => 'pusat@omvms.com', // Email beda dari superadmin
-            'password' => Hash::make('password'),
-            'role' => 'admin_omvms',
+            'name'      => 'HR Manager',
+            'username'  => 'hr_manager',
+            'email'     => 'hr@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'hr_system',
             'is_active' => true,
         ]);
 
-        // 3. Admin Departemen (Admin IT - NEW ROLE)
-        // Tugas: Buat jadwal lembur, report departemen
+        // 3. Admin POS (Petugas Kantin)
+        // Akses: Scan Voucher, Report Transaksi Harian
         User::create([
-            'username' => 'admin_it',
-            'email' => 'admin.it@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'admin_dept', // Role untuk Admin Departemen
+            'name'      => 'Petugas Kantin',
+            'username'  => 'kasir_kantin',
+            'email'     => 'pos@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'admin_pos',
             'is_active' => true,
         ]);
 
-        // 4. Head Dept (Approval)
+        // 4. Admin Department (Kepala/Admin per Departemen)
+        // Akses: Input Lembur Karyawan, Approve Lembur
         User::create([
-            'username' => 'head_it',
-            'email' => 'head@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'head_dept',
+            'name'      => 'Admin IT Dept',
+            'username'  => 'admin_it',
+            'email'     => 'it_admin@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'admin_dept',
             'is_active' => true,
         ]);
 
-        // 5. Karyawan (User biasa)
+        // 5. Karyawan (End User)
+        // Akses: Cek Saldo Voucher, History Pemakaian
         User::create([
-            'username' => 'budi',
-            'email' => 'budi@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'employee',
-            'is_active' => true,
-        ]);
-
-        // 6. Petugas Kantin (POS)
-        User::create([
-            'username' => 'kasir',
-            'email' => 'pos@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'pos',
+            'name'      => 'Budi Santoso',
+            'username'  => 'budi',
+            'email'     => 'budi@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'employee',
             'is_active' => true,
         ]);
     }
