@@ -10,58 +10,90 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Super Admin (HR System Owner - Full Akses)
+        // Reset table user (Hati-hati, ini menghapus data lama)
+        // User::truncate(); 
+
+        // 1. Admin System (IT Support Global)
+        // Tidak butuh departemen spesifik
         User::create([
-            'username' => 'superadmin',
-            'email' => 'admin@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'superadmin',
+            'name'      => 'System Administrator',
+            'username'  => 'sysadmin',
+            'email'     => 'admin@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'admin_system', 
+            'department'=> null,
             'is_active' => true,
         ]);
 
-        // 2. Admin OMVMS (Admin Pusat Voucher/Kantin)
+        // 2. HR System (Human Resources)
         User::create([
-            'username' => 'admin_omvms',
-            'email' => 'pusat@omvms.com', // Email beda dari superadmin
-            'password' => Hash::make('password'),
-            'role' => 'admin_omvms',
+            'name'      => 'HR Manager',
+            'username'  => 'hr_manager',
+            'email'     => 'hr@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'hr_system',
+            'department'=> 'HRGA', // HR biasanya masuk dept HRGA
             'is_active' => true,
         ]);
 
-        // 3. Admin Departemen (Admin IT - NEW ROLE)
-        // Tugas: Buat jadwal lembur, report departemen
+        // 3. Admin POS (Petugas Kantin)
         User::create([
-            'username' => 'admin_it',
-            'email' => 'admin.it@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'admin_dept', // Role untuk Admin Departemen
+            'name'      => 'Petugas Kantin',
+            'username'  => 'kasir_kantin',
+            'email'     => 'pos@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'admin_pos',
+            'department'=> 'General Affair',
             'is_active' => true,
         ]);
 
-        // 4. Head Dept (Approval)
+        // --- DEPARTEMEN IT (Contoh 1 Flow Lengkap) ---
+
+        // 4. Admin Department (Admin IT)
+        // Tugas: Input data lembur tim IT
         User::create([
-            'username' => 'head_it',
-            'email' => 'head@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'head_dept',
+            'name'      => 'Admin IT Dept',
+            'username'  => 'admin_it',
+            'email'     => 'it_admin@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'admin_dept',
+            'department'=> 'Information Technology', // Wajib diisi
             'is_active' => true,
         ]);
 
-        // 5. Karyawan (User biasa)
+        // 5. Head Department (Manager IT) - ROLE BARU
+        // Tugas: Approve lembur tim IT
         User::create([
-            'username' => 'budi',
-            'email' => 'budi@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'employee',
+            'name'      => 'Manager IT',
+            'username'  => 'head_it', // Username untuk login Head Dept
+            'email'     => 'manager_it@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'head_dept', // Role baru
+            'department'=> 'Information Technology', // Harus sama dengan Admin & Karyawan IT
             'is_active' => true,
         ]);
 
-        // 6. Petugas Kantin (POS)
+        // 6. Karyawan (Staff IT)
         User::create([
-            'username' => 'kasir',
-            'email' => 'pos@omvms.com',
-            'password' => Hash::make('password'),
-            'role' => 'pos',
+            'name'      => 'Budi Santoso',
+            'username'  => 'budi',
+            'email'     => 'budi@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'employee',
+            'department'=> 'Information Technology',
+            'is_active' => true,
+        ]);
+
+        // --- DEPARTEMEN FINANCE (Contoh 2 agar terlihat bedanya) ---
+        
+        // Head Dept Finance
+        User::create([
+            'name'      => 'Manager Finance',
+            'username'  => 'head_finance',
+            'email'     => 'manager_fin@omvms.com',
+            'password'  => Hash::make('password'),
+            'role'      => 'head_dept',
+            'department'=> 'Finance',
             'is_active' => true,
         ]);
     }

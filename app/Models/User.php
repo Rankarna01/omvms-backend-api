@@ -6,16 +6,16 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes; // Tambahkan ini jika pakai SoftDeletes
+
 
 class User extends Authenticatable
 {
     // Tambahkan SoftDeletes jika di migration pakai $table->softDeletes();
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes; 
+    use HasApiTokens, HasFactory, Notifiable; 
 
     /**
      * The attributes that are mass assignable.
-     *
+     
      * @var array<int, string>
      */
     protected $fillable = [
@@ -25,6 +25,7 @@ class User extends Authenticatable
         'role',
         'username',
         'is_active',
+        'department', // <--- Tambahkan ini
         'employee_id', // <--- WAJIB DITAMBAHKAN (Agar controller bisa simpan ID ini)
         'department_id', // <--- WAJIB DITAMBAHKAN DISINI
     ];
