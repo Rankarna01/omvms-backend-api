@@ -10,15 +10,34 @@ use Illuminate\Validation\Rule;
 class EmployeeController extends Controller
 {
     // GET: Ambil semua data karyawan (Paginated)
-    public function index()
+    public function index(Request $request)
     {
-        $employees = Employee::with('department') // Load relasi department
-            ->orderBy('created_at', 'desc')
-            ->paginate(10); // 10 data per halaman
+        // 1. Mulai Query
+        $query = Employee::with('department');
 
+        // 2. Filter Department (Jika ada parameter department_id)
+        if ($request->has('department_id') && $request->department_id != 0) {
+            $query->where('department_id', $request->department_id);
+        }
+
+        // 3. Filter Search (Nama/NIK)
+        if ($request->search) {
+            $query->where(function($q) use ($request) {
+                $q->where('full_name', 'like', '%' . $request->search . '%')
+                  ->orWhere('nik', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        // 4. Filter Belum Punya Akun (Penyebab Error 500 jika Model salah)
+        if ($request->has('show_doesnt_have_account')) {
+             // Ini mengecek relasi public function user() di Model Employee
+             $query->doesntHave('user');
+        }
+
+        // 5. Return JSON
         return response()->json([
             'status' => 'success',
-            'data' => $employees
+            'data' => $query->latest()->paginate(50) // Ambil 50 data biar dropdown panjang
         ]);
     }
 

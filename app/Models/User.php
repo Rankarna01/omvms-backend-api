@@ -26,6 +26,7 @@ class User extends Authenticatable
         'username',
         'is_active',
         'employee_id', // <--- WAJIB DITAMBAHKAN (Agar controller bisa simpan ID ini)
+        'department_id', // <--- WAJIB DITAMBAHKAN DISINI
     ];
 
     protected $hidden = [
@@ -44,8 +45,16 @@ class User extends Authenticatable
 
     // Relasi ke tabel Employees
     // Dipanggil oleh: User::with('employee') di controller
+    // Relasi ke Employee (Data Diri)
     public function employee()
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    // Relasi ke Department (Hak Akses Departemen)
+    // TAMBAHKAN INI 👇
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
 }
