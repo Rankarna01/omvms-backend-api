@@ -4,44 +4,52 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash; // Tambahkan Import Hash
 use App\Models\User;
 
 class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        // 1. Validasi Input
+        // 1. Validasi Input (Ubah 'email' menjadi 'username')
         $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+            'username' => 'required|string', // Frontend mengirim NIK sebagai 'username'
+            'password' => 'required|string',
         ]);
 
-        // 2. Cek Credential Manual (Tanpa Session/Cookie)
-        // Kita cari user by email
-        $user = User::where('email', $request->email)->first();
+        // 2. Cek Credential Manual (Cari berdasarkan username/NIK)
+        $user = User::where('username', $request->username)->first();
 
-        // 3. Cek Password & User
-        if (!$user || !\Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+        // 3. Cek Password & User Validity
+        // Tambahkan cek !$user agar tidak error jika user tidak ditemukan
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Email atau password salah.'
+                'message' => 'NIK atau Password salah.' // Pesan disesuaikan
             ], 401);
         }
 
-        // 4. Hapus token lama (opsional, agar 1 device 1 token)
+        // Cek Status Aktif (Opsional, recommended)
+        if (!$user->is_active) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akun Anda dinonaktifkan. Hubungi Admin.'
+            ], 403);
+        }
+
+        // 4. Hapus token lama (Agar 1 device 1 token - Opsional)
         $user->tokens()->delete();
 
-        // 5. Buat Token Baru (Plain Text)
-        // Token ini string panjang yang akan disimpan di frontend
+        // 5. Buat Token Baru
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        // 6. Return Response JSON
+        // 6. Return Response JSON (Struktur Tetap Sama)
         return response()->json([
             'status' => 'success',
             'message' => 'Login berhasil',
             'data' => [
                 'user' => $user,
-                'token' => $token, // <-- Ini kuncinya
+                'token' => $token,
                 'token_type' => 'Bearer'
             ]
         ]);
@@ -58,7 +66,7 @@ class AuthController extends Controller
         ]);
     }
     
-    // API Cek User (Untuk mengetes token valid/tidak)
+    // API Cek User
     public function me(Request $request)
     {
         return response()->json([

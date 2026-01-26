@@ -3,63 +3,83 @@
 namespace App\Http\Controllers\Admin\EmployeeAccount;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class EmployeeAccountController extends Controller
 {
-    // GET: List semua akun karyawan
     public function index(Request $request)
     {
-        $query = User::with('employee.department') // Load data karyawan & dept
-                     ->where('role', 'employee');  // Filter hanya role employee
+        $query = Employee::with(['department', 'user']);
 
         if ($request->search) {
-            $query->whereHas('employee', function($q) use ($request) {
+            $query->where(function($q) use ($request) {
                 $q->where('full_name', 'like', '%' . $request->search . '%')
                   ->orWhere('nik', 'like', '%' . $request->search . '%');
             });
         }
 
+        if ($request->department_id) {
+            $query->where('department_id', $request->department_id);
+        }
+
         return response()->json([
             'status' => 'success',
-            'data' => $query->latest()->paginate(10)
+            'data' => $query->latest()->paginate(20)
         ]);
     }
 
-    // POST: Buat Akun Karyawan (Link ke Data Employee)
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'employee_id' => 'required|exists:employees,id|unique:users,employee_id', // 1 Karyawan = 1 Akun
-            'username'    => 'required|unique:users,username',
-            'email'       => 'required|email|unique:users,email',
-            'password'    => 'required|min:6',
+        // 1. Validasi: Cuma butuh ID Karyawan & Password
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id|unique:users,employee_id',
+            'password'    => 'required|min:6'
         ]);
 
-        // Ambil data karyawan untuk mengisi field 'name' (opsional, biar rapi)
-        $employee = Employee::findOrFail($request->employee_id);
+        // 2. Ambil Data Karyawan
+        $employee = Employee::with('department')->find($request->employee_id);
+        
+        // Cek Department
+        $deptName = $employee->department ? $employee->department->dept_name : '-';
 
+        // 3. AUTO GENERATE Username (NIK) & Email (Dummy)
+        // Kita gunakan NIK sebagai username login
+        $nik = $employee->nik; 
+        
         $user = User::create([
-            'name'        => $employee->full_name, // Ambil nama dari tabel employee
-            'username'    => $validated['username'],
-            'email'       => $validated['email'],
-            'password'    => Hash::make($validated['password']),
-            'role'        => 'employee', // Hardcode role
-            'employee_id' => $validated['employee_id'],
-            'is_active'   => true
+            'name'          => $employee->full_name,
+            'username'      => $nik,                // <--- Otomatis dari NIK
+            'email'         => $nik . '@omvms.com', // <--- Otomatis Dummy Email
+            'password'      => Hash::make($request->password),
+            'role'          => 'employee',
+            'department'    => $deptName, 
+            'employee_id'   => $employee->id,
+            'is_active'     => true
         ]);
 
-        return response()->json(['status' => 'success', 'message' => 'Akun karyawan berhasil dibuat', 'data' => $user], 201);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Akun berhasil dibuat. Login menggunakan NIK.',
+            'data' => $user
+        ], 201);
     }
 
-    // DELETE: Hapus Akun
-    public function destroy($id)
+    public function destroy($employee_id)
     {
-        $user = User::where('role', 'employee')->findOrFail($id);
+        $user = User::where('employee_id', $employee_id)->first();
+        
+        if(!$user) {
+             return response()->json(['status' => 'error', 'message' => 'Account not found'], 404);
+        }
+        
         $user->delete();
-        return response()->json(['status' => 'success', 'message' => 'Akun karyawan dihapus']);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Account access revoked'
+        ]);
     }
-}
+}   
