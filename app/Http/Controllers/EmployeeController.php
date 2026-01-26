@@ -47,6 +47,8 @@ class EmployeeController extends Controller
         $request->validate([
             'nik' => 'required|unique:employees,nik',
             'full_name' => 'required|string|max:255',
+            // [UPDATE] Tambahkan validasi email
+            'email' => 'required|email|unique:employees,email', 
             'phone' => 'required|numeric',
             'department_id' => 'required|exists:departments,id',
             'position' => 'required|string',
@@ -54,6 +56,8 @@ class EmployeeController extends Controller
             'is_active' => 'required|boolean',
         ]);
 
+        // Karena kita sudah memvalidasi 'email', $request->all() sekarang aman
+        // asalkan 'email' ada di $fillable Model Employee.
         $employee = Employee::create($request->all());
 
         return response()->json([
@@ -87,6 +91,8 @@ class EmployeeController extends Controller
         $request->validate([
             'nik' => ['required', Rule::unique('employees')->ignore($employee->id)],
             'full_name' => 'required|string|max:255',
+            // [UPDATE] Validasi email saat update (Ignore punya sendiri)
+            'email' => ['required', 'email', Rule::unique('employees')->ignore($employee->id)],
             'phone' => 'required|numeric',
             'department_id' => 'required|exists:departments,id',
             'position' => 'required|string',

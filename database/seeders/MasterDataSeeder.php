@@ -33,6 +33,8 @@ class MasterDataSeeder extends Seeder
         Employee::create([
             'nik' => 'EMP001',
             'full_name' => 'Budi Developer',
+            // [FIX] Tambahkan Email dummy
+            'email' => 'budi@omvms.com', 
             'phone' => '08123456789',
             'department_id' => $it->id,
             'position' => 'Senior Developer',
@@ -43,6 +45,8 @@ class MasterDataSeeder extends Seeder
         Employee::create([
             'nik' => 'EMP002',
             'full_name' => 'Siti HRD',
+            // [FIX] Tambahkan Email dummy
+            'email' => 'siti@omvms.com',
             'phone' => '08987654321',
             'department_id' => $hr->id,
             'position' => 'HR Manager',

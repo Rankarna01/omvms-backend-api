@@ -11,9 +11,15 @@ class Employee extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'nik', 'full_name', 'phone', 'department_id', 'position', 'join_date', 'photo', 'is_active'
-    ];
-
+    'nik', 
+    'full_name', 
+    'email', // <--- WAJIB ADA
+    'phone', 
+    'department_id', 
+    'position', 
+    'join_date', 
+    'is_active'
+];
     // Relasi ke Department
     public function department()
     {

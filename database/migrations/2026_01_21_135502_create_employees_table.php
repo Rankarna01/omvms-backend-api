@@ -12,6 +12,10 @@ return new class extends Migration
             $table->id();
             $table->string('nik')->unique();
             $table->string('full_name');
+            
+            // ✅ TAMBAHAN: Kolom Email dimasukkan disini
+            $table->string('email')->unique(); 
+            
             $table->string('phone');
             $table->foreignId('department_id')->constrained('departments')->onDelete('cascade');
             $table->string('position'); 
