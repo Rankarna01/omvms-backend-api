@@ -19,16 +19,15 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-        'username',
-        'is_active',
-        'department', // <--- Tambahkan ini
-        'employee_id', // <--- WAJIB DITAMBAHKAN (Agar controller bisa simpan ID ini)
-        'department_id', // <--- WAJIB DITAMBAHKAN DISINI
-    ];
+    'name',
+    'nik', // <--- Ganti 'username' jadi 'nik'
+    'email',
+    'password',
+    'role',
+    'department',
+    'employee_id',
+    'is_active',
+];
 
     protected $hidden = [
         'password',

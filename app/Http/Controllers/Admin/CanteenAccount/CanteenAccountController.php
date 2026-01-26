@@ -23,20 +23,23 @@ class CanteenAccountController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'     => 'required|string|max:255',
-            'username' => 'required|unique:users,username',
+            'name'     => 'required|string',
+            
+            // Validasi ke kolom 'nik' di tabel users
+            'username' => 'required|unique:users,nik', 
+            
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|min:6',
         ]);
 
         $user = User::create([
             'name'        => $validated['name'],
-            'username'    => $validated['username'],
+            
+            'nik'         => $validated['username'], // Simpan Kode POS ke kolom 'nik'
+            
             'email'       => $validated['email'],
             'password'    => Hash::make($validated['password']),
-            
-            'role'        => 'admin_pos', // <--- SESUAIKAN DISINI
-            
+            'role'        => 'admin_pos',
             'employee_id' => null,
             'is_active'   => true
         ]);

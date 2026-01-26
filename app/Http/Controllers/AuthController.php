@@ -9,23 +9,22 @@ use App\Models\User;
 
 class AuthController extends Controller
 {
-    public function login(Request $request)
+   public function login(Request $request)
     {
-        // 1. Validasi Input (Ubah 'email' menjadi 'username')
+        // 1. Validasi Input (Terima 'nik')
         $request->validate([
-            'username' => 'required|string', // Frontend mengirim NIK sebagai 'username'
+            'nik'      => 'required|string', // Frontend kirim 'nik'
             'password' => 'required|string',
         ]);
 
-        // 2. Cek Credential Manual (Cari berdasarkan username/NIK)
-        $user = User::where('username', $request->username)->first();
+        // 2. Cek User berdasarkan kolom 'nik'
+        $user = User::where('nik', $request->nik)->first();
 
-        // 3. Cek Password & User Validity
-        // Tambahkan cek !$user agar tidak error jika user tidak ditemukan
+        // 3. Cek Password
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'NIK atau Password salah.' // Pesan disesuaikan
+                'message' => 'NIK atau Password salah.'
             ], 401);
         }
 

@@ -33,36 +33,38 @@ class EmployeeAccountController extends Controller
 
     public function store(Request $request)
     {
-        // 1. Validasi: Cuma butuh ID Karyawan & Password
         $request->validate([
             'employee_id' => 'required|exists:employees,id|unique:users,employee_id',
             'password'    => 'required|min:6'
         ]);
 
-        // 2. Ambil Data Karyawan
+        // 1. Ambil Data Karyawan (Pastikan kolom email terambil)
         $employee = Employee::with('department')->find($request->employee_id);
         
-        // Cek Department
         $deptName = $employee->department ? $employee->department->dept_name : '-';
-
-        // 3. AUTO GENERATE Username (NIK) & Email (Dummy)
-        // Kita gunakan NIK sebagai username login
-        $nik = $employee->nik; 
+        $nikAsli  = $employee->nik; 
         
+        // 2. LOGIKA BARU: Cek apakah karyawan punya email asli?
+        // Jika ada, pakai email asli. Jika kosong, baru generate dummy.
+        $emailUser = $employee->email ? $employee->email : ($nikAsli . '@omvms.com');
+
         $user = User::create([
-            'name'          => $employee->full_name,
-            'username'      => $nik,                // <--- Otomatis dari NIK
-            'email'         => $nik . '@omvms.com', // <--- Otomatis Dummy Email
-            'password'      => Hash::make($request->password),
-            'role'          => 'employee',
-            'department'    => $deptName, 
-            'employee_id'   => $employee->id,
-            'is_active'     => true
+            'name'        => $employee->full_name,
+            'nik'         => $nikAsli,
+            
+            // --- PERBAIKAN DISINI ---
+            'email'       => $emailUser, // Pakai variable yang sudah dicek di atas
+            
+            'password'    => Hash::make($request->password),
+            'role'        => 'employee',
+            'department'  => $deptName, 
+            'employee_id' => $employee->id,
+            'is_active'   => true
         ]);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Akun berhasil dibuat. Login menggunakan NIK.',
+            'message' => 'Akun berhasil dibuat.',
             'data' => $user
         ], 201);
     }

@@ -10,91 +10,95 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Reset table user (Hati-hati, ini menghapus data lama)
+        // Reset table user (Opsional, agar tidak duplikat saat seed ulang)
         // User::truncate(); 
 
         // 1. Admin System (IT Support Global)
-        // Tidak butuh departemen spesifik
         User::create([
-            'name'      => 'System Administrator',
-            'username'  => 'sysadmin',
-            'email'     => 'admin@omvms.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'admin_system', 
-            'department'=> null,
-            'is_active' => true,
+            'name'       => 'System Administrator',
+            'nik'        => '00000', // Admin pakai kode spesial '00000'
+            'email'      => 'admin@omvms.com',
+            'password'   => Hash::make('password'),
+            'role'       => 'admin_system', 
+            'department' => null,
+            'is_active'  => true,
+            'employee_id' => null, // Admin System tidak wajib link ke employee
         ]);
 
         // 2. HR System (Human Resources)
         User::create([
-            'name'      => 'HR Manager',
-            'username'  => 'hr_manager',
-            'email'     => 'hr@omvms.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'hr_system',
-            'department'=> 'HRGA', // HR biasanya masuk dept HRGA
-            'is_active' => true,
+            'name'       => 'HR Manager',
+            'nik'        => '10001', // NIK HR
+            'email'      => 'hr@omvms.com',
+            'password'   => Hash::make('password'),
+            'role'       => 'hr_system',
+            'department' => 'HRGA',
+            'is_active'  => true,
+            'employee_id' => null, 
         ]);
 
         // 3. Admin POS (Petugas Kantin)
         User::create([
-            'name'      => 'Petugas Kantin',
-            'username'  => 'kasir_kantin',
-            'email'     => 'pos@omvms.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'admin_pos',
-            'department'=> 'General Affair',
-            'is_active' => true,
+            'name'       => 'Petugas Kantin 1',
+            'nik'        => 'POS01', // Kode POS bisa huruf+angka
+            'email'      => 'pos@omvms.com',
+            'password'   => Hash::make('password'),
+            'role'       => 'admin_pos',
+            'department' => 'General Affair',
+            'is_active'  => true,
+            'employee_id' => null,
         ]);
 
-        // --- DEPARTEMEN IT (Contoh 1 Flow Lengkap) ---
+        // --- DEPARTEMEN IT ---
 
         // 4. Admin Department (Admin IT)
-        // Tugas: Input data lembur tim IT
         User::create([
-            'name'      => 'Admin IT Dept',
-            'username'  => 'admin_it',
-            'email'     => 'it_admin@omvms.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'admin_dept',
-            'department'=> 'Information Technology', // Wajib diisi
-            'is_active' => true,
+            'name'       => 'Admin IT Dept',
+            'nik'        => '2024001',
+            'email'      => 'it_admin@omvms.com',
+            'password'   => Hash::make('password'),
+            'role'       => 'admin_dept',
+            'department' => 'Information Technology',
+            'is_active'  => true,
+            'employee_id' => null,
         ]);
 
-        // 5. Head Department (Manager IT) - ROLE BARU
-        // Tugas: Approve lembur tim IT
+        // 5. Head Department (Manager IT)
         User::create([
-            'name'      => 'Manager IT',
-            'username'  => 'head_it', // Username untuk login Head Dept
-            'email'     => 'manager_it@omvms.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'head_dept', // Role baru
-            'department'=> 'Information Technology', // Harus sama dengan Admin & Karyawan IT
-            'is_active' => true,
+            'name'       => 'Manager IT',
+            'nik'        => '2024002',
+            'email'      => 'manager_it@omvms.com',
+            'password'   => Hash::make('password'),
+            'role'       => 'head_dept',
+            'department' => 'Information Technology',
+            'is_active'  => true,
+            'employee_id' => null,
         ]);
 
         // 6. Karyawan (Staff IT)
         User::create([
-            'name'      => 'Budi Santoso',
-            'username'  => 'budi',
-            'email'     => 'budi@omvms.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'employee',
-            'department'=> 'Information Technology',
-            'is_active' => true,
+            'name'       => 'Budi Santoso',
+            'nik'        => '2024003',
+            'email'      => 'budi@omvms.com',
+            'password'   => Hash::make('password'),
+            'role'       => 'employee',
+            'department' => 'Information Technology',
+            'is_active'  => true,
+            'employee_id' => null, // Nanti diisi ID asli kalau sudah ada data employee
         ]);
 
-        // --- DEPARTEMEN FINANCE (Contoh 2 agar terlihat bedanya) ---
+        // --- DEPARTEMEN FINANCE ---
         
-        // Head Dept Finance
+        // 7. Head Dept Finance
         User::create([
-            'name'      => 'Manager Finance',
-            'username'  => 'head_finance',
-            'email'     => 'manager_fin@omvms.com',
-            'password'  => Hash::make('password'),
-            'role'      => 'head_dept',
-            'department'=> 'Finance',
-            'is_active' => true,
+            'name'       => 'Manager Finance',
+            'nik'        => '2024004',
+            'email'      => 'manager_fin@omvms.com',
+            'password'   => Hash::make('password'),
+            'role'       => 'head_dept',
+            'department' => 'Finance',
+            'is_active'  => true,
+            'employee_id' => null,
         ]);
     }
 }

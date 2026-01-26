@@ -6,33 +6,31 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
 {
     Schema::create('users', function (Blueprint $table) {
         $table->id();
         $table->string('name');
-        $table->string('username')->unique();
+        
+        // --- UBAH DISINI ---
+        // Ganti 'username' jadi 'nik'
+        $table->string('nik')->unique(); 
+        
         $table->string('email')->unique();
         $table->timestamp('email_verified_at')->nullable();
         $table->string('password');
         
-        // --- TAMBAHAN PENTING ---
-        // Role baru ditambahkan: 'head_dept'
         $table->enum('role', [
-            'admin_system', 
-            'hr_system', 
-            'admin_pos', 
-            'admin_dept', 
-            'head_dept', // <--- Role Baru
-            'employee'
+            'admin_system', 'hr_system', 'admin_pos', 
+            'admin_dept', 'head_dept', 'employee'
         ])->default('employee');
-
-        // Kolom Department (Nullable karena admin_system/hr mungkin tidak butuh)
-        // Idealnya ini foreignId ke tabel 'departments', tapi string dulu gpp untuk prototype
+        
         $table->string('department')->nullable(); 
+        
+        $table->foreignId('employee_id')
+              ->nullable()
+              ->constrained('employees')
+              ->onDelete('cascade'); 
         
         $table->boolean('is_active')->default(true);
         $table->rememberToken();
@@ -41,13 +39,8 @@ return new class extends Migration
     });
 }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
-        Schema::dropIfExists('sessions');
     }
 };
