@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Shift;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule; // [TAMBAHAN] Import Rule
 
 class ShiftController extends Controller
 {
@@ -19,12 +20,15 @@ class ShiftController extends Controller
 
     public function store(Request $request)
     {
+        // Validasi Nama Shift agar sesuai standar perusahaan
+        $allowedShifts = ['Shift 1 (Pagi)', 'Shift 2 (Siang)', 'Shift 3 (Malam)', 'General'];
+
         $request->validate([
-            'shift_name'   => 'required|string|max:100',
+            'shift_name'   => ['required', 'string', Rule::in($allowedShifts)], // [UPDATE] Validasi IN
             'start_time'   => 'required|date_format:H:i',
             'end_time'     => 'required|date_format:H:i',
             'allow_meal'   => 'required|boolean',
-            'lock_request' => 'required|boolean', // Validasi Logic Baru
+            'lock_request' => 'required|boolean',
             'description'  => 'nullable|string'
         ]);
 
@@ -45,8 +49,11 @@ class ShiftController extends Controller
             return response()->json(['message' => 'Shift tidak ditemukan'], 404);
         }
 
+        // Sama, validasi nama shift saat update
+        $allowedShifts = ['Shift 1 (Pagi)', 'Shift 2 (Siang)', 'Shift 3 (Malam)', 'General'];
+
         $request->validate([
-            'shift_name'   => 'required|string|max:100',
+            'shift_name'   => ['required', 'string', Rule::in($allowedShifts)],
             'start_time'   => 'required|date_format:H:i',
             'end_time'     => 'required|date_format:H:i',
             'allow_meal'   => 'required|boolean',
@@ -63,6 +70,7 @@ class ShiftController extends Controller
         ]);
     }
 
+    // Method destroy tetap sama
     public function destroy($id)
     {
         $shift = Shift::find($id);
