@@ -15,7 +15,8 @@ class Employee extends Model
     'full_name', 
     'email', // <--- WAJIB ADA
     'phone', 
-    'department_id', 
+    'department_id',
+    'shift_id', 
     'position', 
     'join_date', 
     'is_active'
@@ -30,5 +31,10 @@ class Employee extends Model
     public function user()
     {
         return $this->hasOne(User::class);
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(Shift::class);
     }
 }

@@ -13,7 +13,8 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         // 1. Mulai Query
-        $query = Employee::with('department');
+        $query = Employee::with('department', 'shift');
+        
 
         // 2. Filter Department (Jika ada parameter department_id)
         if ($request->has('department_id') && $request->department_id != 0) {
@@ -33,6 +34,7 @@ class EmployeeController extends Controller
              // Ini mengecek relasi public function user() di Model Employee
              $query->doesntHave('user');
         }
+        $query = Employee::with(['department', 'shift']);
 
         // 5. Return JSON
         return response()->json([
@@ -51,9 +53,11 @@ class EmployeeController extends Controller
             'email' => 'required|email|unique:employees,email', 
             'phone' => 'required|numeric',
             'department_id' => 'required|exists:departments,id',
+            'shift_id'      => 'required|exists:shifts,id',
             'position' => 'required|string',
             'join_date' => 'required|date',
             'is_active' => 'required|boolean',
+            'shift_id' => 'required|exists:shifts,id',
         ]);
 
         // Karena kita sudah memvalidasi 'email', $request->all() sekarang aman
@@ -95,6 +99,7 @@ class EmployeeController extends Controller
             'email' => ['required', 'email', Rule::unique('employees')->ignore($employee->id)],
             'phone' => 'required|numeric',
             'department_id' => 'required|exists:departments,id',
+            'shift_id'      => 'required|exists:shifts,id',
             'position' => 'required|string',
             'join_date' => 'required|date',
             'is_active' => 'required|boolean',
