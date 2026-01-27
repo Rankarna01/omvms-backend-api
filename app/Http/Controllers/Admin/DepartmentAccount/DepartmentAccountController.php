@@ -5,17 +5,31 @@ namespace App\Http\Controllers\Admin\DepartmentAccount;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Employee;
+use App\Models\Department; // Pastikan Model Department di-import
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class DepartmentAccountController extends Controller
 {
-    // GET: List Akun
+    /**
+     * GET: List Akun (Admin Dept & Head Dept)
+     */
     public function index(Request $request)
     {
-        // Kita load relasi berjenjang: User -> Employee -> Department
-        $query = User::with(['employee.department']) 
+        // Kita load relasi 'department' langsung dari user karena sekarang user punya department_id
+        $query = User::with(['employee', 'department'])
                      ->whereIn('role', ['admin_dept', 'head_dept']);
+
+        // Filter search (Opsional)
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('nik', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
 
         return response()->json([
             'status' => 'success',
@@ -23,82 +37,132 @@ class DepartmentAccountController extends Controller
         ]);
     }
 
-    // POST: Buat Akun Baru
+    /**
+     * POST: Buat Akun Baru
+     */
     public function store(Request $request)
     {
         // 1. Validasi Input
         $validated = $request->validate([
-            'employee_id'   => 'required|exists:employees,id|unique:users,employee_id',
-            'username'      => 'required|unique:users,username',
+            'employee_id'   => 'required|exists:employees,id|unique:users,employee_id', // 1 Karyawan = 1 Akun
+            'department_id' => 'required|exists:departments,id', // Wajib pilih departemen
             'email'         => 'required|email|unique:users,email',
             'password'      => 'required|min:6',
-            'role'          => 'required|in:admin_dept,head_dept',
-            // department_id dari frontend boleh dikirim, tapi kita validasi saja keberadaannya
-            'department_id' => 'sometimes|exists:departments,id' 
+            'role'          => 'required|in:admin_dept,head_dept'
         ]);
 
-        // 2. AMBIL DATA KARYAWAN
-        $employee = Employee::findOrFail($request->employee_id);
+        // 2. Ambil data karyawan untuk mendapatkan NIK & Nama
+        $employee = Employee::findOrFail($validated['employee_id']);
+        
+        // Ambil NIK dari data karyawan
+        $nik = $employee->nik; 
 
-        // 3. LOGIC PENENTUAN DEPARTEMEN
-        // Kita ambil department_id ASLI milik karyawan tersebut
-        // Jadi meskipun frontend salah kirim ID dept, data di database tetap konsisten
-        $realDepartmentId = $employee->department_id;
+        // 3. Cek apakah NIK sudah dipakai di tabel users (Double protection)
+        if (User::where('nik', $nik)->exists()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'NIK karyawan ini sudah terdaftar sebagai user.'
+            ], 422);
+        }
 
-        // 4. Buat User
-        $user = User::create([
-            'name'          => $employee->full_name,
-            'username'      => $validated['username'],
-            'email'         => $validated['email'],
-            'password'      => Hash::make($validated['password']),
-            'role'          => $validated['role'],
-            
-            // Relasi PENTING
-            'employee_id'   => $employee->id,
-            'department_id' => $realDepartmentId, // <--- ISI OTOMATIS DARI KARYAWAN
-            
-            'is_active'     => true
-        ]);
+        // 4. Create User
+        try {
+            $user = User::create([
+                'name'          => $employee->full_name, // Mengambil nama asli karyawan
+                'nik'           => $nik,                 // Otomatis dari Employee
+                'email'         => $validated['email'],
+                'password'      => Hash::make($validated['password']),
+                'role'          => $validated['role'],
+                'employee_id'   => $employee->id,
+                'department_id' => $validated['department_id'], // Sesuai pilihan admin
+                'is_active'     => true
+            ]);
 
-        return response()->json([
-            'status' => 'success', 
-            'message' => 'Akun departemen berhasil dibuat', 
-            'data' => $user
-        ], 201);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Akun departemen berhasil dibuat',
+                'data' => $user->load('department') // Tampilkan respon beserta data departemennya
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal membuat user: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    // PUT: Update Akun
+    /**
+     * PUT: Update Akun
+     */
     public function update(Request $request, $id)
     {
+        // Cari User yg role-nya admin_dept atau head_dept
         $user = User::whereIn('role', ['admin_dept', 'head_dept'])->findOrFail($id);
 
         $validated = $request->validate([
-            'username' => 'required|unique:users,username,' . $id,
-            'email'    => 'required|email|unique:users,email,' . $id,
-            'role'     => 'required|in:admin_dept,head_dept',
-            'status'   => 'required|in:ACTIVE,INACTIVE',
-            'password' => 'nullable|min:6'
+            'department_id' => 'required|exists:departments,id', // Bisa pindah departemen
+            'email'         => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'role'          => 'required|in:admin_dept,head_dept',
+            'status'        => 'required|in:ACTIVE,INACTIVE',
+            'password'      => 'nullable|min:6'
         ]);
 
-        $user->username = $validated['username'];
-        $user->email = $validated['email'];
-        $user->role = $validated['role'];
-        $user->is_active = $validated['status'] === 'ACTIVE';
+        // Update Data
+        $user->department_id = $validated['department_id'];
+        $user->email         = $validated['email'];
+        $user->role          = $validated['role'];
+        $user->is_active     = $validated['status'] === 'ACTIVE'; // Konversi string ke boolean
 
+        // Update password hanya jika diisi
         if ($request->filled('password')) {
             $user->password = Hash::make($validated['password']);
         }
 
         $user->save();
 
-        return response()->json(['status' => 'success', 'message' => 'Data diperbarui']);
+        return response()->json([
+            'status' => 'success', 
+            'message' => 'Data akun berhasil diperbarui',
+            'data' => $user->load('department')
+        ]);
     }
 
-    // DELETE
+    /**
+     * DELETE: Hapus Akun (Soft Delete)
+     */
     public function destroy($id)
     {
-        $user = User::findOrFail($id);
+        $user = User::whereIn('role', ['admin_dept', 'head_dept'])->findOrFail($id);
+        
+        // Hapus user (SoftDelete sesuai model)
         $user->delete();
-        return response()->json(['status' => 'success']);
+        
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Akun berhasil dinonaktifkan (dihapus)'
+        ]);
+    }
+    
+    /**
+     * GET: Helper untuk Form (List Department & Employee yg belum punya akun)
+     * Opsional: Berguna untuk dropdown di frontend
+     */
+    public function getFormOptions()
+    {
+        // Ambil semua departemen aktif
+        $departments = Department::where('is_active', true)
+                        ->select('id', 'dept_name', 'dept_code')
+                        ->get();
+
+        // Ambil karyawan yang belum punya akun user
+        $availableEmployees = Employee::doesntHave('user')
+                        ->select('id', 'nik', 'full_name')
+                        ->get();
+
+        return response()->json([
+            'departments' => $departments,
+            'employees' => $availableEmployees
+        ]);
     }
 }
