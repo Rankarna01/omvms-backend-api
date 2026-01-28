@@ -52,9 +52,7 @@ class UserSeeder extends Seeder
             ]
         );
 
-        // ==========================================
-        // TAHAP 2: BUAT USER DENGAN DEPARTMENT_ID
-        // ==========================================
+       
 
         // 1. Admin System (IT Support Global) - Tidak wajib punya departemen
         User::create([

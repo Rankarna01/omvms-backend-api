@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin\DepartmentAccount;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Employee;
-use App\Models\Department; // Pastikan Model Department di-import
+use App\Models\Department; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -15,28 +15,36 @@ class DepartmentAccountController extends Controller
     /**
      * GET: List Akun (Admin Dept & Head Dept)
      */
-    public function index(Request $request)
+   public function index(Request $request)
     {
-        // Kita load relasi 'department' langsung dari user karena sekarang user punya department_id
-        $query = User::with(['employee', 'department'])
-                     ->whereIn('role', ['admin_dept', 'head_dept']);
+        // 1. Mulai Query
+        $query = Employee::with('department');
 
-        // Filter search (Opsional)
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('nik', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+        // 2. FILTER DEPARTEMEN (Ini yang membuat dropdown sesuai departemen)
+        if ($request->has('department_id') && $request->department_id != '') {
+            $query->where('department_id', $request->department_id);
+        }
+
+        // 3. Filter Pencarian Nama/NIK (Opsional)
+        if ($request->search) {
+            $query->where(function($q) use ($request) {
+                $q->where('full_name', 'like', '%' . $request->search . '%')
+                  ->orWhere('nik', 'like', '%' . $request->search . '%');
             });
+        }
+
+        // 4. Filter Karyawan yang BELUM punya akun (Supaya tidak double)
+        // Pastikan Model Employee sudah ada fungsi public function user() { return $this->hasOne(User::class); }
+        if ($request->has('show_doesnt_have_account')) {
+             $query->doesntHave('user');
         }
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->latest()->paginate(10)
+            // Gunakan paginate yang cukup besar atau get() jika data sedikit
+            'data' => $query->orderBy('full_name', 'asc')->paginate(50) 
         ]);
     }
-
     /**
      * POST: Buat Akun Baru
      */
