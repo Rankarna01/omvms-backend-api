@@ -7,6 +7,8 @@ use App\Models\OvertimeRequest;
 use App\Models\Employee;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use App\Models\Voucher;
+use Illuminate\Support\Str;
 
 class OvertimeController extends Controller
 {
@@ -122,6 +124,36 @@ class OvertimeController extends Controller
         ]);
     }
 
+    public function pending()
+    {
+        // Hanya ambil yang statusnya SUBMITTED
+        $data = OvertimeRequest::with(['employee.shift'])
+            ->where('status', 'SUBMITTED')
+            ->latest()
+            ->get();
+
+        return response()->json(['status' => 'success', 'data' => $data]);
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $overtime = OvertimeRequest::findOrFail($id);
+
+        if ($overtime->status !== 'SUBMITTED') {
+            return response()->json(['message' => 'Status tidak valid.'], 400);
+        }
+
+        $overtime->update([
+            'status' => 'REJECTED'
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Pengajuan lembur ditolak.',
+            'data' => $overtime
+        ]);
+    }
+    
     public function destroy($id)
     {
         $overtime = OvertimeRequest::findOrFail($id);
@@ -136,31 +168,72 @@ class OvertimeController extends Controller
     {
         $overtime = OvertimeRequest::findOrFail($id);
 
+        // 1. Validasi Status Awal
         if ($overtime->status !== 'SUBMITTED') {
-            return response()->json(['message' => 'Status request tidak valid.'], 400);
+            return response()->json(['message' => 'Status request tidak valid untuk diapprove.'], 400);
         }
 
+        // --- PERSIAPAN WAKTU ---
         $approvalTime = Carbon::now();
-        $overtimeEndTime = Carbon::parse($overtime->date . ' ' . $overtime->end_time);
-        if (Carbon::parse($overtime->start_time)->gt(Carbon::parse($overtime->end_time))) {
+        
+        // Format tanggal bersih (Y-m-d) agar tidak error double time
+        $dateString = $overtime->date->format('Y-m-d'); 
+        
+        // Tentukan Waktu Mulai Lembur yang Sebenarnya
+        $overtimeStartTime = Carbon::parse($dateString . ' ' . $overtime->start_time);
+
+        // ==========================================================
+        // [LOGIC BARU] STRICT MODE: TOLAK JIKA LEMBUR SUDAH MULAI
+        // ==========================================================
+        // Jika waktu sekarang >= waktu mulai lembur, maka TOLAK.
+        if ($approvalTime->greaterThanOrEqualTo($overtimeStartTime)) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'GAGAL: Lembur sudah dimulai! Approval harus dilakukan sebelum jam ' . $overtime->start_time
+            ], 400);
+        }
+        // ==========================================================
+
+        // 2. Hitung Waktu Selesai & Expired Voucher
+        $overtimeEndTime = Carbon::parse($dateString . ' ' . $overtime->end_time);
+        
+        // Cek Cross Day (Lembur lintas hari, misal mulai 23:00 selesai 03:00)
+        $start = Carbon::parse($overtime->start_time);
+        $end   = Carbon::parse($overtime->end_time);
+        
+        if ($start->gt($end)) {
             $overtimeEndTime->addDay();
         }
 
-        if ($approvalTime->greaterThanOrEqualTo($overtimeEndTime)) {
-            $expiredAt = $approvalTime->copy()->addHours(2);
-        } else {
-            $expiredAt = $overtimeEndTime->copy()->addHours(4);
-        }
+        // Karena Strict Mode (Pasti diapprove sebelum mulai), 
+        // Logic expired voucher jadi simpel: Selalu "Jam Selesai + 4 Jam".
+        $expiredAt = $overtimeEndTime->copy()->addHours(4);
 
+        // 3. Update Status Overtime
         $overtime->update([
             'status'      => 'APPROVED',
             'approved_at' => $approvalTime,
             'expired_at'  => $expiredAt
         ]);
 
+        // 4. GENERATE VOUCHER OTOMATIS (Jika Eligible)
+        if ($overtime->is_eligible_for_voucher) {
+            
+            // Buat Kode Unik
+            $uniqueCode = 'VCH-' . Carbon::now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(5));
+
+            \App\Models\Voucher::create([
+                'overtime_request_id' => $overtime->id,
+                'employee_id'         => $overtime->employee_id,
+                'code'                => $uniqueCode,
+                'status'              => 'AVAILABLE',
+                'expired_at'          => $expiredAt, // Expired sesuai perhitungan di atas
+            ]);
+        }
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Disetujui. Expired: ' . $expiredAt->format('d M Y H:i'),
+            'message' => 'Lembur disetujui & Voucher berhasil dikirim ke karyawan.',
             'data' => $overtime
         ]);
     }

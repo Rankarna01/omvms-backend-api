@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\DepartmentAccount\DepartmentAccountController;
 use App\Http\Controllers\Admin\CanteenAccount\CanteenAccountController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\Admin\OvertimeController;
+use App\Http\Controllers\Admin\VoucherController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -16,6 +17,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    // Route Khusus Head Dept
+    Route::get('/vouchers', [VoucherController::class, 'index']);
+    Route::get('/head/overtime-pending', [OvertimeController::class, 'pending']);
+    Route::post('/overtime-requests/{id}/reject', [OvertimeController::class, 'reject']);
+
 
     Route::get('/hr/departments-list', [EmployeeController::class, 'getDepartments']);
     Route::apiResource('/hr/departments', DepartmentController::class);
