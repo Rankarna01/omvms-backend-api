@@ -10,6 +10,8 @@ use App\Http\Controllers\Admin\CanteenAccount\CanteenAccountController;
 use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\Admin\OvertimeController;
 use App\Http\Controllers\Admin\VoucherController;
+use Illuminate\Http\Request;
+
 
 Route::post('/login', [AuthController::class, 'login']);
 
@@ -17,6 +19,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
 
     // Route Khusus Head Dept
     Route::get('/vouchers', [VoucherController::class, 'index']);
