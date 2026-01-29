@@ -11,37 +11,45 @@ class EmployeeController extends Controller
 {
     // GET: Ambil semua data karyawan (Paginated)
     public function index(Request $request)
-    {
-        // 1. Mulai Query
-        $query = Employee::with('department', 'shift');
-        
+{
+    // 1. Mulai Query (Inisialisasi)
+    $query = Employee::with(['department', 'shift']); 
 
-        // 2. Filter Department (Jika ada parameter department_id)
-        if ($request->has('department_id') && $request->department_id != 0) {
-            $query->where('department_id', $request->department_id);
-        }
+    // 2. Filter Department
+    // Gunakan 'filled' agar aman jika dikirim string kosong ""
+    if ($request->filled('department_id') && $request->department_id != 0 && $request->department_id != 'ALL') {
+        $query->where('department_id', $request->department_id);
+    }
 
-        // 3. Filter Search (Nama/NIK)
-        if ($request->search) {
-            $query->where(function($q) use ($request) {
-                $q->where('full_name', 'like', '%' . $request->search . '%')
-                  ->orWhere('nik', 'like', '%' . $request->search . '%');
-            });
-        }
+    // 3. Filter Search (Nama/NIK)
+    if ($request->filled('search')) {
+        $query->where(function($q) use ($request) {
+            $q->where('full_name', 'like', '%' . $request->search . '%')
+              ->orWhere('nik', 'like', '%' . $request->search . '%');
+        });
+    }
 
-        // 4. Filter Belum Punya Akun (Penyebab Error 500 jika Model salah)
-        if ($request->has('show_doesnt_have_account')) {
-             // Ini mengecek relasi public function user() di Model Employee
-             $query->doesntHave('user');
-        }
-        $query = Employee::with(['department', 'shift']);
+    // 4. Filter Belum Punya Akun
+    if ($request->has('show_doesnt_have_account')) {
+         $query->doesntHave('user');
+    }
 
-        // 5. Return JSON
+    // ❌ JANGAN TULIS INI LAGI: $query = Employee::with... (Ini yang bikin filter hilang!)
+
+    // 5. Return JSON
+    // Opsional: Jika request dari dropdown, pakai get() agar tidak terpotong pagination
+    if ($request->has('show_doesnt_have_account')) {
         return response()->json([
             'status' => 'success',
-            'data' => $query->latest()->paginate(50) // Ambil 50 data biar dropdown panjang
+            'data' => $query->orderBy('full_name', 'asc')->get() 
         ]);
     }
+
+    return response()->json([
+        'status' => 'success',
+        'data' => $query->latest()->paginate(50)
+    ]);
+}
 
     // POST: Tambah Karyawan Baru
     public function store(Request $request)

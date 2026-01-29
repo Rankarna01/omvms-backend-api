@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes; // WAJIB: Tambahkan ini untuk Soft
 class User extends Authenticatable
 {
     // Tambahkan SoftDeletes di sini karena di migration pakai $table->softDeletes();
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes; 
+    use HasApiTokens, HasFactory, Notifiable; 
 
     /**
      * The attributes that are mass assignable.
