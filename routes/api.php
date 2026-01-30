@@ -11,6 +11,8 @@ use App\Http\Controllers\ShiftController;
 use App\Http\Controllers\Admin\OvertimeController;
 use App\Http\Controllers\Admin\VoucherController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Employee\EmployeeVoucherController;
+use App\Http\Controllers\Employee\EmployeeOvertimeController;
 
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -27,7 +29,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/vouchers', [VoucherController::class, 'index']);
     Route::get('/head/overtime-pending', [OvertimeController::class, 'pending']);
     Route::post('/overtime-requests/{id}/reject', [OvertimeController::class, 'reject']);
+    
 
+// Route Khusus Employee
+    Route::get('/employee/my-vouchers', [EmployeeVoucherController::class, 'index']);
+    Route::get('/employee/my-overtime-requests', [EmployeeOvertimeController::class, 'index']);
 
     Route::get('/hr/departments-list', [EmployeeController::class, 'getDepartments']);
     Route::apiResource('/hr/departments', DepartmentController::class);
