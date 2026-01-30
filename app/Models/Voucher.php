@@ -18,5 +18,6 @@ class Voucher extends Model
     public function employee()
     {
         return $this->belongsTo(Employee::class, 'employee_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

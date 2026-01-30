@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\VoucherController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Employee\EmployeeVoucherController;
 use App\Http\Controllers\Employee\EmployeeOvertimeController;
+use App\Http\Controllers\Api\PosScanController;
 
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -24,6 +25,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+
+    // Rout Khusus POS Scan Voucher
+    Route::post('/pos/scan', [PosScanController::class, 'scan']);
+    Route::post('/pos/redeem', [PosScanController::class, 'redeem']);
 
     // Route Khusus Head Dept
     Route::get('/vouchers', [VoucherController::class, 'index']);

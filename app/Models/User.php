@@ -54,5 +54,6 @@ class User extends Authenticatable
     {
         // belongsTo akan otomatis mencari kolom 'department_id' di tabel users
         return $this->belongsTo(Department::class);
+        return $this->belongsTo(Department::class, 'department_id');
     }
 }
