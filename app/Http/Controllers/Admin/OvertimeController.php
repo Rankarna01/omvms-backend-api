@@ -7,7 +7,6 @@ use App\Models\OvertimeRequest;
 use App\Models\Employee;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-use App\Models\Voucher;
 use Illuminate\Support\Str;
 
 class OvertimeController extends Controller
@@ -30,13 +29,19 @@ class OvertimeController extends Controller
 
         $employee = Employee::with('shift')->findOrFail($request->employee_id);
         
+        // --- PRE-CALCULATION DURASI ---
+        $start = Carbon::parse($request->start_time);
+        $end   = Carbon::parse($request->end_time);
+        if ($end->lessThan($start)) $end->addDay(); // Handle cross day if needed (though limited by FE)
+        
+        $duration = $start->diffInHours($end); // Integer hours (or float if using diffInMinutes/60)
+
         // LOGIC 1: JAM LEMBUR HARUS SETELAH SHIFT
         if ($employee->shift) {
             $shiftEndTime = Carbon::createFromFormat('H:i:s', $employee->shift->end_time);
             $reqStartTime = Carbon::parse($request->start_time);
 
             // Jika lembur dimulai sebelum shift berakhir -> TOLAK
-            // (Asumsi di hari yang sama)
             if ($reqStartTime->lt($shiftEndTime)) {
                 return response()->json([
                     'status' => 'error',
@@ -45,19 +50,36 @@ class OvertimeController extends Controller
             }
         }
 
-        // LOGIC 2: DURASI MAKSIMAL 4 JAM
-        $start = Carbon::parse($request->start_time);
-        $end   = Carbon::parse($request->end_time);
-        if ($end->lessThan($start)) $end->addDay();
-        
-        $duration = $start->diffInHours($end); 
-
+        // LOGIC 2: DURASI MAKSIMAL 4 JAM (Per Hari)
         if ($duration > 4) {
             return response()->json([
                 'status' => 'error', 
-                'message' => 'Maksimal lembur adalah 4 Jam sesuai peraturan.'
+                'message' => 'Maksimal lembur adalah 4 Jam per hari sesuai peraturan.'
             ], 422);
         }
+
+        // =================================================================
+        // [NEW LOGIC] CEK LIMIT MINGGUAN (Maksimal 18 Jam / Minggu)
+        // =================================================================
+        $requestDate = Carbon::parse($request->date);
+        $startOfWeek = $requestDate->copy()->startOfWeek(); // Senin
+        $endOfWeek   = $requestDate->copy()->endOfWeek();   // Minggu
+
+        // Hitung total jam lembur yang sudah ada di minggu ini (Submitted + Approved)
+        // Kita exclude Rejected.
+        $weeklyHours = OvertimeRequest::where('employee_id', $employee->id)
+            ->whereBetween('date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+            ->whereIn('status', ['SUBMITTED', 'APPROVED'])
+            ->sum('duration');
+
+        if (($weeklyHours + $duration) > 18) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Batas lembur mingguan terlampaui! (Saat ini: $weeklyHours jam + Baru: $duration jam > 18 jam)"
+            ], 422);
+        }
+        // =================================================================
+
 
         // LOGIC 3: VOUCHER (Minimal 4 Jam Pas)
         $isEligible = ($employee->shift && $employee->shift->allow_meal && $duration >= 4);
@@ -105,7 +127,27 @@ class OvertimeController extends Controller
             return response()->json(['message' => 'Maksimal lembur adalah 4 Jam.'], 422);
         }
 
+        // [NEW LOGIC] RE-CHECK WEEKLY LIMIT ON UPDATE
+        // Exclude current record from calculation
         $employee = Employee::with('shift')->find($overtime->employee_id);
+        
+        $requestDate = Carbon::parse($request->date);
+        $startOfWeek = $requestDate->copy()->startOfWeek();
+        $endOfWeek   = $requestDate->copy()->endOfWeek();
+
+        $weeklyHours = OvertimeRequest::where('employee_id', $employee->id)
+            ->where('id', '!=', $id) // Exclude diri sendiri
+            ->whereBetween('date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
+            ->whereIn('status', ['SUBMITTED', 'APPROVED'])
+            ->sum('duration');
+
+        if (($weeklyHours + $duration) > 18) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Update Gagal: Batas lembur mingguan akan terlampaui ($weeklyHours + $duration > 18)."
+            ], 422);
+        }
+
         $isEligible = ($employee->shift && $employee->shift->allow_meal && $duration >= 4);
 
         $overtime->update([
@@ -220,7 +262,7 @@ class OvertimeController extends Controller
         if ($overtime->is_eligible_for_voucher) {
             
             // Buat Kode Unik
-            $uniqueCode = 'VCH-' . Carbon::now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(5));
+            $uniqueCode = 'VCH-' . Carbon::now()->format('Ymd') . '-' . strtoupper(Str::random(5));
 
             \App\Models\Voucher::create([
                 'overtime_request_id' => $overtime->id,

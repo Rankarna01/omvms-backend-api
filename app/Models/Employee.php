@@ -37,4 +37,9 @@ class Employee extends Model
     {
         return $this->belongsTo(Shift::class);
     }
+
+    public function overtimeRequests()
+{
+    return $this->hasMany(OvertimeRequest::class, 'employee_id');
+}
 }
