@@ -26,6 +26,7 @@ use App\Http\Controllers\Employee\EmployeeOvertimeController;
 use App\Http\Controllers\Admin\EmployeeAccount\EmployeeAccountController;
 use App\Http\Controllers\Admin\DepartmentAccount\DepartmentAccountController;
 use App\Http\Controllers\Admin\CanteenAccount\CanteenAccountController;
+use App\Http\Controllers\Admin\SystemAdminDashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -116,10 +117,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/redeem', [PosScanController::class, 'redeem']);
     });
 
-    // ==========================================================
-    // MODULE: SYSTEM ADMIN (Account Management)
-    // ==========================================================
     Route::prefix('admin-omvms')->group(function () {
+        
+        // Letakkan Dashboard DI ATAS Resource agar tidak tertimpa (Best Practice)
+        Route::get('/dashboard', [SystemAdminDashboardController::class, 'index']);
+
+        // Resource Routes
         Route::apiResource('employee-accounts', EmployeeAccountController::class);
         Route::apiResource('department-accounts', DepartmentAccountController::class);
         Route::apiResource('canteen-accounts', CanteenAccountController::class);
