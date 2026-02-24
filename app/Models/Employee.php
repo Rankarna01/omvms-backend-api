@@ -19,7 +19,8 @@ class Employee extends Model
     'shift_id', 
     'position', 
     'join_date', 
-    'is_active'
+    'is_active',
+    'avatar'
 ];
     // Relasi ke Department
     public function department()

@@ -69,6 +69,34 @@ class EmployeeAccountController extends Controller
         ], 201);
     }
 
+    public function update(Request $request, $id)
+{
+    // Cari langsung berdasarkan Primary Key tabel users
+    $user = User::find($id); 
+
+    if (!$user) {
+        return response()->json([
+            'status' => 'error', 
+            'message' => 'Akun tidak ditemukan (ID: '.$id.')'
+        ], 404);
+    }
+
+    $request->validate([
+        'password' => 'nullable|min:6'
+    ]);
+
+    if ($request->filled('password')) {
+        $user->update([
+            'password' => \Illuminate\Support\Facades\Hash::make($request->password)
+        ]);
+    }
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Password berhasil diperbarui'
+    ]);
+}
+
     public function destroy($employee_id)
     {
         $user = User::where('employee_id', $employee_id)->first();

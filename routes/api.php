@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\PosScanController;
 // --- EMPLOYEE SPECIFIC CONTROLLERS ---
 use App\Http\Controllers\Employee\EmployeeVoucherController;
 use App\Http\Controllers\Employee\EmployeeOvertimeController;
+use App\Http\Controllers\Employee\EmployeeProfileController;
 
 // --- SYSTEM ACCOUNT CONTROLLERS ---
 use App\Http\Controllers\Admin\EmployeeAccount\EmployeeAccountController;
@@ -50,7 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ==========================================================
     // MODULE: HR SYSTEM (HR Manager & System Admin)
     // ==========================================================
-    
+
     // Group 1: Dashboard HR
     Route::prefix('hr-system')->group(function () {
         Route::get('/dashboard', [HrDashboardController::class, 'index']);
@@ -74,7 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ==========================================================
     // MODULE: ADMIN DEPARTMENT (Input Lembur)
     // ==========================================================
-    
+
     // Group Dashboard & Summary Admin Dept
     Route::prefix('admin-dept')->group(function () {
         // Route::get('/dashboard', ...); // Jika nanti ada dashboard khusus admin dept
@@ -95,7 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('head')->group(function () {
         Route::get('/overtime-pending', [OvertimeController::class, 'pending']);
     });
-    
+
     // Action Approval/Reject/View Voucher (Head Dept)
     Route::post('/overtime-requests/{id}/approve', [OvertimeController::class, 'approve']);
     Route::post('/overtime-requests/{id}/reject', [OvertimeController::class, 'reject']);
@@ -107,6 +108,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('employee')->group(function () {
         Route::get('/my-vouchers', [EmployeeVoucherController::class, 'index']);
         Route::get('/my-overtime-requests', [EmployeeOvertimeController::class, 'index']);
+        Route::get('/profile', [EmployeeProfileController::class, 'show']);
+        Route::post('/profile/avatar', [EmployeeProfileController::class, 'updateAvatar']);
+        Route::post('/profile/password', [EmployeeProfileController::class, 'updatePassword']);
     });
 
     // ==========================================================
@@ -118,7 +122,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::prefix('admin-omvms')->group(function () {
-        
+
         // Letakkan Dashboard DI ATAS Resource agar tidak tertimpa (Best Practice)
         Route::get('/dashboard', [SystemAdminDashboardController::class, 'index']);
 
@@ -126,6 +130,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('employee-accounts', EmployeeAccountController::class);
         Route::apiResource('department-accounts', DepartmentAccountController::class);
         Route::apiResource('canteen-accounts', CanteenAccountController::class);
+        Route::put('employee-accounts/{id}', [EmployeeAccountController::class, 'update']);
     });
-
 });
