@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\PosScanController;
 use App\Http\Controllers\Employee\EmployeeVoucherController;
 use App\Http\Controllers\Employee\EmployeeOvertimeController;
 use App\Http\Controllers\Employee\EmployeeProfileController;
+use App\Http\Controllers\HeadDepartment\ReportController as HeadReportController;
 
 // --- SYSTEM ACCOUNT CONTROLLERS ---
 use App\Http\Controllers\Admin\EmployeeAccount\EmployeeAccountController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Admin\CanteenAccount\CanteenAccountController;
 use App\Http\Controllers\Admin\SystemAdminDashboardController;
 use App\Http\Controllers\HeadDepartment\DashboardController as HeadDashboardController;
 use App\Http\Controllers\HeadDepartment\HistoryController as HeadHistoryController;
+use App\Http\Controllers\Admin\SystemVoucherActivityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -83,6 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Route::get('/dashboard', ...); // Jika nanti ada dashboard khusus admin dept
         Route::get('/weekly-summary', [OvertimeSummaryController::class, 'index']);
         Route::get('/dashboard', [App\Http\Controllers\Department\DashboardController::class, 'index']);
+       
     });
 
     // CRUD Overtime Requests (Biasanya diakses Admin Dept)
@@ -101,6 +104,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/overtime-pending', [OvertimeController::class, 'pending']);
         Route::get('/dashboard', [HeadDashboardController::class, 'index']);
         Route::get('/history', [HeadHistoryController::class, 'index']); // Route Riwayat
+        Route::get('/reports', [HeadReportController::class, 'index']);
+        Route::get('/reports/export-pdf', [HeadReportController::class, 'exportPdf']);
+       
+        
     });
 
     // Action Approval/Reject/View Voucher (Head Dept)
