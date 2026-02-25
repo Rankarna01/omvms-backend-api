@@ -28,6 +28,8 @@ use App\Http\Controllers\Admin\EmployeeAccount\EmployeeAccountController;
 use App\Http\Controllers\Admin\DepartmentAccount\DepartmentAccountController;
 use App\Http\Controllers\Admin\CanteenAccount\CanteenAccountController;
 use App\Http\Controllers\Admin\SystemAdminDashboardController;
+use App\Http\Controllers\Admin\DailyPortionSummaryController;
+use App\Http\Controllers\Admin\SystemVoucherActivityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -80,6 +82,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin-dept')->group(function () {
         // Route::get('/dashboard', ...); // Jika nanti ada dashboard khusus admin dept
         Route::get('/weekly-summary', [OvertimeSummaryController::class, 'index']);
+        
     });
 
     // CRUD Overtime Requests (Biasanya diakses Admin Dept)
@@ -89,6 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/overtime-requests/{id}', [OvertimeController::class, 'update']);
     Route::delete('/overtime-requests/{id}', [OvertimeController::class, 'destroy']);
     Route::post('/overtime-requests/bulk', [OvertimeController::class, 'bulkStore']);
+    Route::get('/daily-portion-summary', [DailyPortionSummaryController::class, 'index']);
 
     // ==========================================================
     // MODULE: HEAD DEPARTMENT (Approval)
@@ -131,5 +135,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('department-accounts', DepartmentAccountController::class);
         Route::apiResource('canteen-accounts', CanteenAccountController::class);
         Route::put('employee-accounts/{id}', [EmployeeAccountController::class, 'update']);
+        Route::get('/voucher-activities', [SystemVoucherActivityController::class, 'index']);
     });
 });
