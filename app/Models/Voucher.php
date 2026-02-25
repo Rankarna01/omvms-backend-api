@@ -8,16 +8,21 @@ class Voucher extends Model
 {
     protected $guarded = ['id'];
     
-    // Relasi
+    // Relasi ke Overtime Request
     public function overtimeRequest()
     {
         return $this->belongsTo(OvertimeRequest::class);
     }
 
-    // [TAMBAHKAN INI] Relasi ke Employee
+    // Relasi ke Employee (SUDAH DIPERBAIKI)
     public function employee()
     {
         return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
+    // [OPSIONAL] Jika Anda memang butuh relasi ke User, pisahkan function-nya:
+    public function user()
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 }

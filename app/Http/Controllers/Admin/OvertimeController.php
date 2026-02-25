@@ -284,4 +284,24 @@ class OvertimeController extends Controller
     {
         return response()->json(['message' => 'Bulk insert success'], 200);
     }
+
+    public function getEmployeesForForm(Request $request)
+{
+    $user = $request->user();
+    
+    // Check if the user is an admin of a specific department
+    if (in_array($user->role, ['admin_dept', 'head_dept']) && $user->department_id) {
+        // Filter employees to ONLY those in the admin's department
+        $employees = Employee::where('department_id', $user->department_id)->get();
+    } else {
+         // Superadmin can see everyone (optional)
+         if($user->role === 'admin_system') {
+            $employees = Employee::all();
+         } else {
+            return response()->json(['message' => 'Unauthorized access.'], 403);
+         }
+    }
+    
+    return response()->json(['status' => 'success', 'data' => $employees]);
+}
 }
