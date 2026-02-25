@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Voucher;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage; // Tambahkan ini untuk handle URL gambar
 
 class PosScanController extends Controller
 {
@@ -62,20 +63,37 @@ class PosScanController extends Controller
             ], 400);
         }
 
+        // --- PREPARE DATA KARYAWAN ---
+        $employee = $voucher->employee;
+        
+        // Logika Foto/Avatar
+        // Jika kolom avatar ada isinya, buatkan full URL-nya. Jika kosong, pakai UI Avatars.
+        $photoUrl = null;
+        if ($employee && !empty($employee->avatar)) {
+            // Asumsi foto disimpan di folder public/storage
+            // Jika Anda menyimpannya dalam bentuk URL penuh, langsung saja: $photoUrl = $employee->avatar;
+            $photoUrl = asset('storage/' . $employee->avatar); 
+        } else {
+            // Fallback jika avatar kosong
+            $photoUrl = 'https://ui-avatars.com/api/?name=' . urlencode($employee->full_name ?? 'User') . '&background=0D8ABC&color=fff&size=256';
+        }
+
         // 4. Return Data Valid untuk Verifikasi Wajah di Frontend
         return response()->json([
             'status' => 'success',
             'message' => 'Voucher Valid. Silakan Verifikasi Wajah.',
             'data' => [
                 'voucher_id' => $voucher->id,
-                'code'      => $voucher->code,
-                // Menggunakan null coalescing operator (??) untuk keamanan data
-                'name'      => $voucher->employee->name ?? 'Unknown',
-                'nik'       => $voucher->employee->nik ?? '-',
-                'email'     => $voucher->employee->email ?? '-',
-                'dept'      => $voucher->employee->department->name ?? 'Unknown Dept',
-                // Placeholder avatar jika foto kosong
-                'photoUrl'  => $voucher->employee->photo_url ?? 'https://ui-avatars.com/api/?name=' . urlencode($voucher->employee->name ?? 'User') . '&background=0D8ABC&color=fff'
+                'code'       => $voucher->code,
+                
+                // [FIX] Menggunakan 'full_name' dan 'dept_name' sesuai database
+                'name'       => $employee->full_name ?? 'Unknown',
+                'nik'        => $employee->nik ?? '-',
+                'email'      => $employee->email ?? '-',
+                'dept'       => $employee->department->dept_name ?? 'Unknown Dept',
+                
+                // Foto Karyawan
+                'photoUrl'   => $photoUrl
             ]
         ]);
     }
@@ -109,22 +127,24 @@ class PosScanController extends Controller
             // Update Database
             $voucher->status = 'REDEEMED';
             $voucher->redeemed_at = Carbon::now();
-            $voucher->redeemed_by = auth()->id(); // ID akun POS yang login
+            
+            // Catatan: Pastikan tabel vouchers punya kolom redeemed_by jika Anda pakai baris ini
+            // $voucher->redeemed_by = auth()->id(); 
+            
             $voucher->save();
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Voucher Berhasil Di-redeem.',
                 'data' => [
-                     'name' => $voucher->employee->name ?? 'Unknown',
-                     'dept' => $voucher->employee->department->name ?? 'Unknown',
+                     // [FIX] Menggunakan 'full_name' dan 'dept_name'
+                     'name' => $voucher->employee->full_name ?? 'Unknown',
+                     'dept' => $voucher->employee->department->dept_name ?? 'Unknown',
                      'time' => $voucher->redeemed_at->format('H:i:s'),
                 ]
             ]);
         } else {
             // 3. Proses Reject (Wajah Tidak Sesuai)
-            // Kita tidak mengubah status voucher (tetap AVAILABLE) agar pemilik asli bisa pakai,
-            // tapi kita return success agar UI POS kembali standby.
             return response()->json([
                 'status' => 'success',
                 'message' => 'Verifikasi Ditolak Oleh Petugas.',
