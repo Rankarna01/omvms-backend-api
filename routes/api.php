@@ -137,5 +137,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('department-accounts', DepartmentAccountController::class);
         Route::apiResource('canteen-accounts', CanteenAccountController::class);
         Route::put('employee-accounts/{id}', [EmployeeAccountController::class, 'update']);
+        Route::get('/voucher-activities', [SystemVoucherActivityController::class, 'index']);
     });
 });

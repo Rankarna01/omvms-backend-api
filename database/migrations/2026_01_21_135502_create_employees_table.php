@@ -20,7 +20,6 @@ return new class extends Migration
             $table->foreignId('department_id')->constrained('departments')->onDelete('cascade');
             $table->string('position'); 
             $table->date('join_date');
-            $table->string('photo')->nullable(); 
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes(); 
