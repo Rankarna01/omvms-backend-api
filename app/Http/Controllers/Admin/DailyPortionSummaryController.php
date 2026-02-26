@@ -13,8 +13,14 @@ class DailyPortionSummaryController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user || $user->role !== 'admin_dept') {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
+        // 1. Cek Token Login (401 Unauthorized)
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthenticated'], 401);
+        }
+
+        // 2. Cek Role (403 Forbidden) - Beri akses ke admin_dept atau head_dept
+        if (!in_array($user->role, ['admin_dept', 'head_dept'])) {
+            return response()->json(['status' => 'error', 'message' => 'Forbidden Access: Invalid Role'], 403);
         }
 
         $adminDeptId = $user->department_id;
