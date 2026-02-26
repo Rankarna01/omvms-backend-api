@@ -43,4 +43,8 @@ class Employee extends Model
 {
     return $this->hasMany(OvertimeRequest::class, 'employee_id');
 }
+public function vouchers()
+    {
+        return $this->hasMany(Voucher::class, 'employee_id');
+    }
 }

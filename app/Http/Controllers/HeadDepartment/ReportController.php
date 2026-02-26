@@ -21,8 +21,12 @@ class ReportController extends Controller
             $data = $this->getReportData($request->user());
             return response()->json(['status' => 'success', 'data' => $data]);
         } catch (\Exception $e) {
-            Log::error("Report Error: " . $e->getMessage());
-            return response()->json(['status' => 'error', 'message' => 'Gagal memuat laporan'], 500);
+            // UBAH BARIS INI SEMENTARA UNTUK DEBUGGING
+            return response()->json([
+                'status' => 'error', 
+                'message' => $e->getMessage(), // <--- Ini akan mencetak error aslinya (misal: "Column not found", dll)
+                'line' => $e->getLine()
+            ], 500);
         }
     }
 
@@ -34,12 +38,17 @@ class ReportController extends Controller
         try {
             $user = $request->user();
             $data = $this->getReportData($user);
+            
+            // Ambil data departemen (gunakan find agar tidak error jika tidak ketemu)
             $department = Department::find($user->department_id);
+            
+            // PENTING: Gunakan ternary operator agar tidak error "Attempt to read property on null"
+            $deptName = $department ? $department->dept_name : 'Semua Departemen';
 
             // Load view blade dan passing data
             $pdf = Pdf::loadView('exports.department_report', [
                 'data' => $data,
-                'dept_name' => $department->dept_name ?? 'Department',
+                'dept_name' => $deptName,
                 'date' => Carbon::now()->format('d M Y H:i')
             ]);
 
@@ -47,11 +56,15 @@ class ReportController extends Controller
             return $pdf->download('Report_Lembur_' . Carbon::now()->format('Ymd') . '.pdf');
 
         } catch (\Exception $e) {
+            // UBAH INI SEMENTARA UNTUK MELIHAT ERROR ASLINYA
             Log::error("PDF Export Error: " . $e->getMessage());
-            return response()->json(['message' => 'Gagal membuat PDF'], 500);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Error PDF: ' . $e->getMessage(), // <--- Ini akan mencetak error aslinya ke Frontend
+                'line' => $e->getLine()
+            ], 500);
         }
     }
-
     /**
      * PRIVATE METHOD: Logika inti untuk menghitung total jam & voucher
      */
