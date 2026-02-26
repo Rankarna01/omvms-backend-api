@@ -30,6 +30,12 @@ use App\Http\Controllers\Admin\CanteenAccount\CanteenAccountController;
 use App\Http\Controllers\Admin\SystemAdminDashboardController;
 use App\Http\Controllers\HeadDepartment\DashboardController as HeadDashboardController;
 use App\Http\Controllers\HeadDepartment\HistoryController as HeadHistoryController;
+use App\Http\Controllers\Admin\SystemVoucherActivityController;
+use App\Http\Controllers\Admin\DailyPortionSummaryController;
+use App\Http\Controllers\Admin\SystemApprovalOverviewController;
+use App\Http\Controllers\Admin\SystemPosMonitoringController;
+use App\Http\Controllers\Admin\SystemSettingController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -91,6 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/overtime-requests', [OvertimeController::class, 'store']);
     Route::put('/overtime-requests/{id}', [OvertimeController::class, 'update']);
     Route::delete('/overtime-requests/{id}', [OvertimeController::class, 'destroy']);
+    Route::get('/daily-portion-summary', [DailyPortionSummaryController::class, 'index']);
     Route::post('/overtime-requests/bulk', [OvertimeController::class, 'bulkStore']);
     //route untuk admin departement 
 
@@ -138,5 +145,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('canteen-accounts', CanteenAccountController::class);
         Route::put('employee-accounts/{id}', [EmployeeAccountController::class, 'update']);
         Route::get('/voucher-activities', [SystemVoucherActivityController::class, 'index']);
+        Route::get('/approval-overview', [SystemApprovalOverviewController::class, 'index']);
+        Route::get('/pos-monitoring', [SystemPosMonitoringController::class, 'index']);
+        Route::get('/system-settings', [SystemSettingController::class, 'index']);
+        Route::put('/system-settings', [SystemSettingController::class, 'update']);
     });
 });
