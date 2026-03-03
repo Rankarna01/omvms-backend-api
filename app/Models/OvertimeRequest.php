@@ -15,6 +15,7 @@ class OvertimeRequest extends Model
     // Kolom yang boleh diisi secara massal (create/update)
     protected $fillable = [
         'employee_id',
+        'overtime_code',
         'date',
         'start_time',
         'end_time',

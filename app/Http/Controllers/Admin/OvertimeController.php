@@ -23,26 +23,35 @@ class OvertimeController extends Controller
             'employee_id' => 'required|exists:employees,id',
             'date'        => 'required|date',
             'start_time'  => 'required|date_format:H:i',
-            'end_time'    => 'required|date_format:H:i|after:start_time',
+            'duration'    => 'required|numeric|min:0.5', 
             'reason'      => 'required|string',
         ]);
 
-        $employee = Employee::with('shift')->findOrFail($request->employee_id);
-        
-        // --- PRE-CALCULATION DURASI ---
-        $start = Carbon::parse($request->start_time);
-        $end   = Carbon::parse($request->end_time);
-        if ($end->lessThan($start)) $end->addDay(); // Handle cross day if needed (though limited by FE)
-        
-        $duration = $start->diffInHours($end); // Integer hours (or float if using diffInMinutes/60)
+        $hasExistingOvertime = OvertimeRequest::where('employee_id', $request->employee_id)
+            ->where('date', $request->date)
+            ->whereIn('status', ['SUBMITTED', 'APPROVED', 'REDEEMED'])
+            ->exists();
 
-        // LOGIC 1: JAM LEMBUR HARUS SETELAH SHIFT
+        if ($hasExistingOvertime) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Karyawan ini sudah memiliki jadwal lembur pada tanggal tersebut. Anda hanya diperbolehkan membuat 1 jadwal lembur per karyawan dalam 1 hari.'
+            ], 422);
+        }
+        // =================================================================
+
+        $employee = Employee::with('shift')->findOrFail($request->employee_id);
+        $durationInput = (float) $request->duration;
+        $cleanDate = Carbon::parse($request->date)->format('Y-m-d');
+        $start = Carbon::parse($cleanDate . ' ' . $request->start_time);
+        $end = $start->copy()->addMinutes($durationInput * 60);
+
+        // LOGIC 2: JAM LEMBUR HARUS SETELAH SHIFT
         if ($employee->shift) {
-            $shiftEndTime = Carbon::createFromFormat('H:i:s', $employee->shift->end_time);
-            $reqStartTime = Carbon::parse($request->start_time);
+            $shiftEndTime = Carbon::parse($cleanDate . ' ' . $employee->shift->end_time);
 
             // Jika lembur dimulai sebelum shift berakhir -> TOLAK
-            if ($reqStartTime->lt($shiftEndTime)) {
+            if ($start->lt($shiftEndTime)) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Lembur hanya bisa dimulai setelah jam shift berakhir (' . $shiftEndTime->format('H:i') . ').'
@@ -50,49 +59,61 @@ class OvertimeController extends Controller
             }
         }
 
-        // LOGIC 2: DURASI MAKSIMAL 4 JAM (Per Hari)
-        if ($duration > 4) {
-            return response()->json([
-                'status' => 'error', 
-                'message' => 'Maksimal lembur adalah 4 Jam per hari sesuai peraturan.'
-            ], 422);
-        }
-
         // =================================================================
-        // [NEW LOGIC] CEK LIMIT MINGGUAN (Maksimal 18 Jam / Minggu)
+        // LOGIC 3: CEK LIMIT MINGGUAN (Maksimal 40 Jam / Minggu)
         // =================================================================
         $requestDate = Carbon::parse($request->date);
-        $startOfWeek = $requestDate->copy()->startOfWeek(); // Senin
-        $endOfWeek   = $requestDate->copy()->endOfWeek();   // Minggu
+        $startOfWeek = $requestDate->copy()->startOfWeek();
+        $endOfWeek   = $requestDate->copy()->endOfWeek();
 
-        // Hitung total jam lembur yang sudah ada di minggu ini (Submitted + Approved)
-        // Kita exclude Rejected.
         $weeklyHours = OvertimeRequest::where('employee_id', $employee->id)
             ->whereBetween('date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
             ->whereIn('status', ['SUBMITTED', 'APPROVED'])
             ->sum('duration');
 
-        if (($weeklyHours + $duration) > 18) {
+        if (($weeklyHours + $durationInput) > 40) {
             return response()->json([
                 'status' => 'error',
-                'message' => "Batas lembur mingguan terlampaui! (Saat ini: $weeklyHours jam + Baru: $duration jam > 18 jam)"
+                'message' => "Batas lembur mingguan terlampaui! (Saat ini: $weeklyHours jam + Baru: $durationInput jam > 40 jam)"
             ], 422);
         }
         // =================================================================
 
+        // =================================================================
+        // LOGIC 4: GENERATE UNIQUE CODE
+        // Format: OVT-[UrutanLembur]-[DDMMYY] (Contoh: OVT-01-030326)
+        // =================================================================
 
-        // LOGIC 3: VOUCHER (Minimal 4 Jam Pas)
-        $isEligible = ($employee->shift && $employee->shift->allow_meal && $duration >= 4);
+        // 1. Hitung jumlah lembur karyawan ini yang sudah ada di database
+        $overtimeCount = OvertimeRequest::where('employee_id', $employee->id)->count();
+
+        // 2. Tambah 1 untuk mendapatkan urutan pengajuan yang SEKARANG
+        $nextSequence = $overtimeCount + 1;
+
+        // 3. Format urutan menjadi 2 digit (misal: "1" menjadi "01", "12" tetap "12")
+        $sequenceFormatted = str_pad($nextSequence, 2, '0', STR_PAD_LEFT);
+
+        // 4. Format tanggal dari request date (bukan tanggal server saat ini),
+        //    menggunakan format 'dmy' agar urutannya HariBulanTahun (030326).
+        $dateFormatted = Carbon::parse($request->date)->format('dmy');
+
+        // 5. Rangkai kode utuhnya
+        $overtimeCode = "OVT-{$sequenceFormatted}-{$dateFormatted}";
+        // =================================================================
+
+        // LOGIC 5: VOUCHER ELIGIBILITY (Tetap minimal 4 jam untuk dapat makan)
+        $isEligible = ($employee->shift && $employee->shift->allow_meal && $durationInput >= 4);
 
         $overtime = OvertimeRequest::create([
-            'employee_id' => $request->employee_id,
-            'date'        => $request->date,
-            'start_time'  => $request->start_time,
-            'end_time'    => $request->end_time,
-            'duration'    => $duration,
-            'reason'      => $request->reason,
+            'overtime_code' => $overtimeCode, // Masukkan kode yang sudah di-generate
+            'employee_id'   => $request->employee_id,
+            'date'          => $request->date,
+            'start_time'    => $start->format('H:i:s'),
+            'end_time'      => $end->format('H:i:s'), // Hasil kalkulasi end_time
+            'duration'      => $durationInput,
+            'reason'        => $request->reason,
             'is_eligible_for_voucher' => $isEligible,
-            'status'      => 'SUBMITTED',
+            'status'        => 'SUBMITTED',
         ]);
 
         return response()->json([
@@ -110,52 +131,46 @@ class OvertimeController extends Controller
             return response()->json(['message' => 'Data disetujui tidak bisa diedit.'], 403);
         }
 
+        // Sama seperti store, validasi durasi
         $request->validate([
             'date'        => 'required|date',
             'start_time'  => 'required|date_format:H:i',
-            'end_time'    => 'required|date_format:H:i',
+            'duration'    => 'required|numeric|min:0.5',
             'reason'      => 'required|string',
         ]);
 
-        $start = Carbon::parse($request->start_time);
-        $end   = Carbon::parse($request->end_time);
-        if ($end->lessThan($start)) $end->addDay();
-        
-        $duration = $start->diffInHours($end);
+        $durationInput = (float) $request->duration;
+        $start = Carbon::parse($request->date . ' ' . $request->start_time);
+        $end = $start->copy()->addMinutes($durationInput * 60);
 
-        if ($duration > 4) {
-            return response()->json(['message' => 'Maksimal lembur adalah 4 Jam.'], 422);
-        }
-
-        // [NEW LOGIC] RE-CHECK WEEKLY LIMIT ON UPDATE
-        // Exclude current record from calculation
+        // RE-CHECK WEEKLY LIMIT ON UPDATE
         $employee = Employee::with('shift')->find($overtime->employee_id);
-        
+
         $requestDate = Carbon::parse($request->date);
         $startOfWeek = $requestDate->copy()->startOfWeek();
         $endOfWeek   = $requestDate->copy()->endOfWeek();
 
         $weeklyHours = OvertimeRequest::where('employee_id', $employee->id)
-            ->where('id', '!=', $id) // Exclude diri sendiri
+            ->where('id', '!=', $id)
             ->whereBetween('date', [$startOfWeek->format('Y-m-d'), $endOfWeek->format('Y-m-d')])
             ->whereIn('status', ['SUBMITTED', 'APPROVED'])
             ->sum('duration');
 
-        if (($weeklyHours + $duration) > 18) {
+        if (($weeklyHours + $durationInput) > 40) {
             return response()->json([
                 'status' => 'error',
-                'message' => "Update Gagal: Batas lembur mingguan akan terlampaui ($weeklyHours + $duration > 18)."
+                'message' => "Update Gagal: Batas lembur mingguan terlampaui ($weeklyHours + $durationInput > 40)."
             ], 422);
         }
 
-        $isEligible = ($employee->shift && $employee->shift->allow_meal && $duration >= 4);
+        $isEligible = ($employee->shift && $employee->shift->allow_meal && $durationInput >= 4);
 
         $overtime->update([
-            'date'       => $request->date,
-            'start_time' => $request->start_time,
-            'end_time'   => $request->end_time,
-            'duration'   => $duration,
-            'reason'     => $request->reason,
+            'date'        => $request->date,
+            'start_time'  => $start->format('H:i:s'),
+            'end_time'    => $end->format('H:i:s'),
+            'duration'    => $durationInput,
+            'reason'      => $request->reason,
             'is_eligible_for_voucher' => $isEligible
         ]);
 
@@ -168,7 +183,6 @@ class OvertimeController extends Controller
 
     public function pending()
     {
-        // Hanya ambil yang statusnya SUBMITTED
         $data = OvertimeRequest::with(['employee.shift'])
             ->where('status', 'SUBMITTED')
             ->latest()
@@ -195,7 +209,7 @@ class OvertimeController extends Controller
             'data' => $overtime
         ]);
     }
-    
+
     public function destroy($id)
     {
         $overtime = OvertimeRequest::findOrFail($id);
@@ -210,66 +224,63 @@ class OvertimeController extends Controller
     {
         $overtime = OvertimeRequest::findOrFail($id);
 
-        // 1. Validasi Status Awal
         if ($overtime->status !== 'SUBMITTED') {
             return response()->json(['message' => 'Status request tidak valid untuk diapprove.'], 400);
         }
 
-        // --- PERSIAPAN WAKTU ---
         $approvalTime = Carbon::now();
-        
-        // Format tanggal bersih (Y-m-d) agar tidak error double time
-        $dateString = $overtime->date->format('Y-m-d'); 
-        
-        // Tentukan Waktu Mulai Lembur yang Sebenarnya
-        $overtimeStartTime = Carbon::parse($dateString . ' ' . $overtime->start_time);
+        $dateString = $overtime->date;
 
-        // ==========================================================
-        // [LOGIC BARU] STRICT MODE: TOLAK JIKA LEMBUR SUDAH MULAI
-        // ==========================================================
-        // Jika waktu sekarang >= waktu mulai lembur, maka TOLAK.
+        $cleanDate = Carbon::parse($dateString)->format('Y-m-d');
+        $overtimeStartTime = Carbon::parse($cleanDate . ' ' . $overtime->start_time);
+
+        // STRICT MODE
         if ($approvalTime->greaterThanOrEqualTo($overtimeStartTime)) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'GAGAL: Lembur sudah dimulai! Approval harus dilakukan sebelum jam ' . $overtime->start_time
             ], 400);
         }
-        // ==========================================================
 
-        // 2. Hitung Waktu Selesai & Expired Voucher
-        $overtimeEndTime = Carbon::parse($dateString . ' ' . $overtime->end_time);
-        
-        // Cek Cross Day (Lembur lintas hari, misal mulai 23:00 selesai 03:00)
+        // Hitung End Time
+        $overtimeEndTime = Carbon::parse($cleanDate . ' ' . $overtime->end_time);
+
         $start = Carbon::parse($overtime->start_time);
         $end   = Carbon::parse($overtime->end_time);
-        
-        if ($start->gt($end)) {
+
+        // Handle Cross Day (jika selesai besok harinya)
+        if ($end->lt($start)) {
             $overtimeEndTime->addDay();
         }
 
-        // Karena Strict Mode (Pasti diapprove sebelum mulai), 
-        // Logic expired voucher jadi simpel: Selalu "Jam Selesai + 4 Jam".
         $expiredAt = $overtimeEndTime->copy()->addHours(4);
 
-        // 3. Update Status Overtime
         $overtime->update([
             'status'      => 'APPROVED',
             'approved_at' => $approvalTime,
             'expired_at'  => $expiredAt
         ]);
 
-        // 4. GENERATE VOUCHER OTOMATIS (Jika Eligible)
+        // ==========================================================
+        // CREATE VOUCHER OTOMATIS JIKA ELIGIBLE
+        // ==========================================================
         if ($overtime->is_eligible_for_voucher) {
-            
-            // Buat Kode Unik
-            $uniqueCode = 'VCH-' . Carbon::now()->format('Ymd') . '-' . strtoupper(Str::random(5));
+
+            // 1. Dapatkan ID Karyawan dan pastikan formatnya 2 digit (misal: "1" jadi "01")
+            $employeeIdFormatted = str_pad($overtime->employee_id, 2, '0', STR_PAD_LEFT);
+
+            // 2. Dapatkan Tanggal Generate Voucher format DDMMYY (Contoh: 030326)
+            $dateFormatted = Carbon::now()->format('dmy');
+
+            // 3. Rangkai kode utuh: VCH-ID-TANGGAL
+            $voucherCode = "VCH-{$employeeIdFormatted}-{$dateFormatted}";
 
             \App\Models\Voucher::create([
                 'overtime_request_id' => $overtime->id,
                 'employee_id'         => $overtime->employee_id,
-                'code'                => $uniqueCode,
+                'code'                => $voucherCode, // <-- Kode yang baru kita buat
                 'status'              => 'AVAILABLE',
-                'expired_at'          => $expiredAt, // Expired sesuai perhitungan di atas
+                'expired_at'          => $expiredAt,
             ]);
         }
 
@@ -279,29 +290,27 @@ class OvertimeController extends Controller
             'data' => $overtime
         ]);
     }
-    
+
+
     public function bulkStore(Request $request)
     {
         return response()->json(['message' => 'Bulk insert success'], 200);
     }
 
     public function getEmployeesForForm(Request $request)
-{
-    $user = $request->user();
-    
-    // Check if the user is an admin of a specific department
-    if (in_array($user->role, ['admin_dept', 'head_dept']) && $user->department_id) {
-        // Filter employees to ONLY those in the admin's department
-        $employees = Employee::where('department_id', $user->department_id)->get();
-    } else {
-         // Superadmin can see everyone (optional)
-         if($user->role === 'admin_system') {
-            $employees = Employee::all();
-         } else {
-            return response()->json(['message' => 'Unauthorized access.'], 403);
-         }
+    {
+        $user = $request->user();
+
+        if (in_array($user->role, ['admin_dept', 'head_dept']) && $user->department_id) {
+            $employees = Employee::where('department_id', $user->department_id)->get();
+        } else {
+            if ($user->role === 'admin_system') {
+                $employees = Employee::all();
+            } else {
+                return response()->json(['message' => 'Unauthorized access.'], 403);
+            }
+        }
+
+        return response()->json(['status' => 'success', 'data' => $employees]);
     }
-    
-    return response()->json(['status' => 'success', 'data' => $employees]);
-}
 }
