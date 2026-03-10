@@ -51,7 +51,7 @@ class UserSeeder extends Seeder
                 'is_active'     => true,
             ]
         );
-
+            
         // 3. Admin POS
         User::firstOrCreate(
             ['nik' => 'POS01'],

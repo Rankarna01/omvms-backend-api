@@ -139,6 +139,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('pos')->group(function () {
         Route::post('/scan', [PosScanController::class, 'scan']);
         Route::post('/redeem', [PosScanController::class, 'redeem']);
+        Route::get('/history', [PosScanController::class, 'history']);
     });
 
     Route::prefix('admin-omvms')->group(function () {
