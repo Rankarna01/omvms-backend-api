@@ -6,149 +6,166 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Voucher;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage; // Tambahkan ini untuk handle URL gambar
 
 class PosScanController extends Controller
 {
-    /**
-     * Langkah 1: Scan Kode Voucher
-     * Mengecek validitas voucher dan mengembalikan data karyawan untuk verifikasi visual.
-     */
     public function scan(Request $request)
     {
-        // 1. Validasi Input
-        $request->validate([
-            'code' => 'required|string',
-        ]);
-
+        $request->validate(['code' => 'required|string']);
         $code = $request->code;
 
-        // 2. Cari Voucher & Load Relasi Karyawan
-        $voucher = Voucher::with(['employee.department'])
-            ->where('code', $code)
-            ->first();
+        $voucher = Voucher::with(['employee.department'])->where('code', $code)->first();
 
-        // 3. Cek Ketersediaan Voucher
         if (!$voucher) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Kode Voucher Tidak Ditemukan.',
-            ], 404);
+            return response()->json(['status' => 'error', 'message' => 'Kode Voucher Tidak Ditemukan.'], 404);
         }
 
-        // Cek apakah sudah dipakai
-        if ($voucher->status === 'REDEEMED') {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Voucher Sudah Digunakan.',
-                'data' => [
-                    'redeemed_at' => $voucher->redeemed_at,
-                ]
-            ], 400);
+        // Cek kadaluarsa HANYA jika voucher masih AVAILABLE
+        if ($voucher->status === 'AVAILABLE' && Carbon::now()->greaterThan($voucher->expired_at)) {
+             $voucher->update(['status' => 'EXPIRED']);
+             return response()->json(['status' => 'error', 'message' => 'Voucher Sudah Kadaluarsa.'], 400);
         }
 
-        // Cek apakah kadaluarsa
-        if ($voucher->status === 'EXPIRED' || Carbon::now()->greaterThan($voucher->expired_at)) {
-             return response()->json([
-                'status' => 'error',
-                'message' => 'Voucher Sudah Kadaluarsa.',
-            ], 400);
-        }
-        
-        // Cek status lain (misal CANCELLED)
-         if ($voucher->status !== 'AVAILABLE') {
-             return response()->json([
+        // Blokir status yang sudah selesai
+        if (in_array($voucher->status, ['REDEEMED', 'OVERBREAK', 'EXPIRED'])) {
+            return response()->json([
                 'status' => 'error',
                 'message' => 'Voucher Tidak Valid (Status: ' . $voucher->status . ').',
             ], 400);
         }
 
-        // --- PREPARE DATA KARYAWAN ---
         $employee = $voucher->employee;
-        
-        // Logika Foto/Avatar
-        // Jika kolom avatar ada isinya, buatkan full URL-nya. Jika kosong, pakai UI Avatars.
-        $photoUrl = null;
-        if ($employee && !empty($employee->avatar)) {
-            // Asumsi foto disimpan di folder public/storage
-            // Jika Anda menyimpannya dalam bentuk URL penuh, langsung saja: $photoUrl = $employee->avatar;
-            $photoUrl = asset('storage/' . $employee->avatar); 
-        } else {
-            // Fallback jika avatar kosong
-            $photoUrl = 'https://ui-avatars.com/api/?name=' . urlencode($employee->full_name ?? 'User') . '&background=0D8ABC&color=fff&size=256';
-        }
+        $photoUrl = ($employee && !empty($employee->avatar)) 
+            ? asset('storage/' . $employee->avatar) 
+            : 'https://ui-avatars.com/api/?name=' . urlencode($employee->full_name ?? 'User') . '&background=0D8ABC&color=fff&size=256';
 
-        // 4. Return Data Valid untuk Verifikasi Wajah di Frontend
+        // Tentukan ini proses Check-In atau Check-Out
+        $actionType = ($voucher->status === 'AVAILABLE') ? 'CHECK_IN' : 'CHECK_OUT';
+        $message = ($actionType === 'CHECK_IN') 
+            ? 'Voucher Valid. Silakan verifikasi untuk mulai istirahat.' 
+            : 'Karyawan sedang istirahat. Silakan verifikasi untuk Check-Out.';
+
         return response()->json([
             'status' => 'success',
-            'message' => 'Voucher Valid. Silakan Verifikasi Wajah.',
+            'message' => $message,
             'data' => [
                 'voucher_id' => $voucher->id,
                 'code'       => $voucher->code,
-                
-                // [FIX] Menggunakan 'full_name' dan 'dept_name' sesuai database
+                'action_type'=> $actionType, // PENTING UNTUK FRONTEND
                 'name'       => $employee->full_name ?? 'Unknown',
                 'nik'        => $employee->nik ?? '-',
-                'email'      => $employee->email ?? '-',
                 'dept'       => $employee->department->dept_name ?? 'Unknown Dept',
-                
-                // Foto Karyawan
-                'photoUrl'   => $photoUrl
+                'photoUrl'   => $photoUrl,
+                'checkin_at' => $voucher->checkin_at ? Carbon::parse($voucher->checkin_at)->format('H:i:s') : null
             ]
         ]);
     }
 
-    /**
-     * Langkah 2: Redeem / Approve Voucher
-     * Dipanggil setelah petugas POS menekan tombol "SESUAI (Approve)".
-     */
     public function redeem(Request $request)
     {
-        // 1. Validasi Input
         $request->validate([
             'voucher_id' => 'required|exists:vouchers,id',
-            'status'     => 'required|in:valid,invalid', // valid = approve, invalid = reject
+            'status'     => 'required|in:valid,invalid', 
         ]);
 
-        // Cari voucher & load relasi untuk response
+        if ($request->status === 'invalid') {
+            return response()->json(['status' => 'success', 'message' => 'Verifikasi Ditolak Oleh Petugas.']);
+        }
+
         $voucher = Voucher::with(['employee.department'])->find($request->voucher_id);
+        $now = Carbon::now();
 
-        // 2. Proses Redeem
-        if ($request->status === 'valid') {
-            
-            // Pastikan voucher belum diredeem orang lain di detik yang sama (Race condition check)
-            if ($voucher->status !== 'AVAILABLE') {
-                 return response()->json([
-                    'status' => 'error',
-                    'message' => 'Gagal! Voucher status telah berubah menjadi ' . $voucher->status,
-                ], 400);
-            }
-
-            // Update Database
-            $voucher->status = 'REDEEMED';
-            $voucher->redeemed_at = Carbon::now();
-            
-            // Catatan: Pastikan tabel vouchers punya kolom redeemed_by jika Anda pakai baris ini
-            // $voucher->redeemed_by = auth()->id(); 
-            
-            $voucher->save();
+        // LOGIKA CHECK-IN (Mulai Istirahat)
+        if ($voucher->status === 'AVAILABLE') {
+            $voucher->update([
+                'status' => 'ON_BREAK',
+                'checkin_at' => $now
+            ]);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Voucher Berhasil Di-redeem.',
+                'message' => 'Check-in Berhasil. Waktu istirahat 1 Jam dimulai.',
                 'data' => [
-                     // [FIX] Menggunakan 'full_name' dan 'dept_name'
-                     'name' => $voucher->employee->full_name ?? 'Unknown',
-                     'dept' => $voucher->employee->department->dept_name ?? 'Unknown',
-                     'time' => $voucher->redeemed_at->format('H:i:s'),
+                    'action' => 'CHECK_IN',
+                    'name' => $voucher->employee->full_name ?? 'Unknown',
+                    'time' => $now->format('H:i:s'),
                 ]
             ]);
-        } else {
-            // 3. Proses Reject (Wajah Tidak Sesuai)
+        } 
+        
+        // LOGIKA CHECK-OUT (Selesai Istirahat)
+        elseif ($voucher->status === 'ON_BREAK') {
+            $checkinTime = Carbon::parse($voucher->checkin_at);
+            $diffInMinutes = $checkinTime->diffInMinutes($now);
+            
+            // Tentukan apakah telat (> 60 menit)
+            $isLate = $diffInMinutes > 60;
+            $newStatus = $isLate ? 'OVERBREAK' : 'REDEEMED';
+
+            $voucher->update([
+                'status' => $newStatus,
+                'checkout_at' => $now,
+                'redeemed_at' => $now, // Tetap isi kapan voucher di-redeem penuh
+                'is_late' => $isLate
+            ]);
+
+            $message = $isLate 
+                ? "Check-out Telat! Durasi istirahat: {$diffInMinutes} menit." 
+                : "Check-out Tepat Waktu. Durasi: {$diffInMinutes} menit.";
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'Verifikasi Ditolak Oleh Petugas.',
+                'message' => $message,
+                'data' => [
+                    'action' => 'CHECK_OUT',
+                    'name' => $voucher->employee->full_name ?? 'Unknown',
+                    'duration_minutes' => $diffInMinutes,
+                    'is_late' => $isLate,
+                    'time' => $now->format('H:i:s'),
+                ]
             ]);
         }
+
+        return response()->json(['status' => 'error', 'message' => 'Status voucher tidak valid untuk diproses.'], 400);
+    }
+
+    /**
+     * Langkah 3: Ambil Riwayat Scan untuk Dashboard POS
+     */
+    public function history(Request $request)
+    {
+        // Ambil semua voucher yang sudah diproses di kantin (Bukan AVAILABLE dan Bukan EXPIRED yang belum diapa-apain)
+        $vouchers = Voucher::with(['employee.department'])
+            ->whereIn('status', ['ON_BREAK', 'REDEEMED', 'OVERBREAK', 'REJECTED'])
+            ->orderBy('updated_at', 'desc') // Urutkan dari aktivitas terbaru
+            ->get()
+            ->map(function ($v) {
+                // Parsing waktu
+                $checkin = $v->checkin_at ? Carbon::parse($v->checkin_at) : null;
+                $checkout = $v->checkout_at ? Carbon::parse($v->checkout_at) : null;
+                
+                // Hitung durasi jika ada checkin dan checkout
+                $duration = null;
+                if ($checkin && $checkout) {
+                    $duration = $checkin->diffInMinutes($checkout);
+                }
+
+                return [
+                    'id' => $v->id,
+                    // Format waktu menjadi YYYY-MM-DD HH:mm agar mudah difilter di frontend
+                    'checkin' => $checkin ? $checkin->format('Y-m-d H:i') : null,
+                    'checkout' => $checkout ? $checkout->format('Y-m-d H:i') : null,
+                    'duration' => $duration,
+                    'voucher' => $v->code,
+                    'name' => $v->employee->full_name ?? 'Unknown',
+                    'dept' => $v->employee->department->dept_name ?? '-',
+                    'status' => $v->status,
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $vouchers
+        ]);
     }
 }
