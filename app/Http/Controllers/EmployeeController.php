@@ -65,8 +65,7 @@ class EmployeeController extends Controller
             'position' => 'required|string',
             'join_date' => 'required|date',
             'is_active' => 'required|boolean',
-            'shift_id' => 'required|exists:shifts,id',
-        ]);
+        ]); 
 
         // Karena kita sudah memvalidasi 'email', $request->all() sekarang aman
         // asalkan 'email' ada di $fillable Model Employee.
@@ -148,5 +147,30 @@ class EmployeeController extends Controller
             'status' => 'success',
             'data' => $departments
         ]);
+    }
+
+    // POST: Import Data Karyawan dari Excel/CSV
+    public function import(Request $request)
+    {
+        // Validasi file yang diupload
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv|max:5120', // Maksimal 5MB
+        ]);
+
+        try {
+            // Proses import menggunakan class EmployeesImport
+            \Maatwebsite\Excel\Facades\Excel::import(new \App\Imports\EmployeesImport, $request->file('file'));
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Data karyawan berhasil diimpor!'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal mengimpor data: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

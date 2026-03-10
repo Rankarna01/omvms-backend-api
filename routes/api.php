@@ -71,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/departments-list', [EmployeeController::class, 'getDepartments']);
         Route::apiResource('/departments', DepartmentController::class);
         Route::apiResource('/employees', EmployeeController::class);
+        Route::post('/employees/import', [EmployeeController::class, 'import']);
     });
 
     // Group 3: Shift Management
