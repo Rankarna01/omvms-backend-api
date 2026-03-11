@@ -80,32 +80,31 @@ class OvertimeController extends Controller
         // =================================================================
 
         // =================================================================
-        // LOGIC 4: GENERATE UNIQUE CODE
-        // Format: OVT-[UrutanLembur]-[DDMMYY] (Contoh: OVT-01-030326)
+        // LOGIC 4: GENERATE UNIQUE CODE (CORPORATE SEQUENCE)
+        // Format: OVT-[YYMMDD]-[0001] (Contoh: OVT-260311-0001)
         // =================================================================
 
-        // 1. Hitung jumlah lembur karyawan ini yang sudah ada di database
-        $overtimeCount = OvertimeRequest::where('employee_id', $employee->id)->count();
+        // 1. Ambil format tanggal YYMMDD (Tahun 2 digit, Bulan 2 digit, Hari 2 digit)
+        $datePrefix = Carbon::parse($request->date)->format('ymd');
 
-        // 2. Tambah 1 untuk mendapatkan urutan pengajuan yang SEKARANG
-        $nextSequence = $overtimeCount + 1;
+        // 2. Hitung total pengajuan lembur (dari semua orang) di tanggal tersebut
+        $countToday = OvertimeRequest::whereDate('date', $request->date)->count();
 
-        // 3. Format urutan menjadi 2 digit (misal: "1" menjadi "01", "12" tetap "12")
-        $sequenceFormatted = str_pad($nextSequence, 2, '0', STR_PAD_LEFT);
+        // 3. Tambah 1 untuk mendapatkan urutan selanjutnya
+        $nextSequence = $countToday + 1;
 
-        // 4. Format tanggal dari request date (bukan tanggal server saat ini),
-        //    menggunakan format 'dmy' agar urutannya HariBulanTahun (030326).
-        $dateFormatted = Carbon::parse($request->date)->format('dmy');
+        // 4. Format urutan menjadi 4 digit (misal: "1" menjadi "0001")
+        $sequenceFormatted = str_pad($nextSequence, 4, '0', STR_PAD_LEFT);
 
         // 5. Rangkai kode utuhnya
-        $overtimeCode = "OVT-{$sequenceFormatted}-{$dateFormatted}";
+        $overtimeCode = "OVT-{$datePrefix}-{$sequenceFormatted}";
         // =================================================================
 
         // LOGIC 5: VOUCHER ELIGIBILITY (Tetap minimal 4 jam untuk dapat makan)
         $isEligible = ($employee->shift && $employee->shift->allow_meal && $durationInput >= 4);
 
         $overtime = OvertimeRequest::create([
-            'overtime_code' => $overtimeCode, // Masukkan kode yang sudah di-generate
+            'overtime_code' => $overtimeCode, // Masukkan kode yang sudah di-generate dengan format baru
             'employee_id'   => $request->employee_id,
             'date'          => $request->date,
             'start_time'    => $start->format('H:i:s'),
@@ -266,19 +265,20 @@ class OvertimeController extends Controller
         // ==========================================================
         if ($overtime->is_eligible_for_voucher) {
 
-            // 1. Dapatkan ID Karyawan dan pastikan formatnya 2 digit (misal: "1" jadi "01")
+            // 1. Dapatkan ID Karyawan dan pastikan formatnya 2 digit
             $employeeIdFormatted = str_pad($overtime->employee_id, 2, '0', STR_PAD_LEFT);
 
-            // 2. Dapatkan Tanggal Generate Voucher format DDMMYY (Contoh: 030326)
+            // 2. Dapatkan Tanggal Generate Voucher format DDMMYY
             $dateFormatted = Carbon::now()->format('dmy');
 
-            // 3. Rangkai kode utuh: VCH-ID-TANGGAL
-            $voucherCode = "VCH-{$employeeIdFormatted}-{$dateFormatted}";
+            // 3. Rangkai kode utuh: VCH-ID-TANGGAL-OVERTIME_ID
+            // Menambahkan ID Overtime menjamin voucher ini 100% unik
+            $voucherCode = "VCH-{$employeeIdFormatted}-{$dateFormatted}-{$overtime->id}";
 
             \App\Models\Voucher::create([
                 'overtime_request_id' => $overtime->id,
                 'employee_id'         => $overtime->employee_id,
-                'code'                => $voucherCode, // <-- Kode yang baru kita buat
+                'code'                => $voucherCode, // <-- Kode unik terupdate
                 'status'              => 'AVAILABLE',
                 'expired_at'          => $expiredAt,
             ]);
@@ -290,7 +290,6 @@ class OvertimeController extends Controller
             'data' => $overtime
         ]);
     }
-
 
     public function bulkStore(Request $request)
     {
