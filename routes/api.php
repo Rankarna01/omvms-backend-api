@@ -126,6 +126,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // MODULE: EMPLOYEE (Karyawan)
     // ==========================================================
     Route::prefix('employee')->group(function () {
+        // --- ROUTE BARU UNTUK DASHBOARD KARYAWAN ---
+        Route::get('/dashboard', [EmployeeProfileController::class, 'dashboard']);
+        // -------------------------------------------
         Route::get('/my-vouchers', [EmployeeVoucherController::class, 'index']);
         Route::get('/my-overtime-requests', [EmployeeOvertimeController::class, 'index']);
         Route::get('/profile', [EmployeeProfileController::class, 'show']);
