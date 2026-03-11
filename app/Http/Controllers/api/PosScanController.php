@@ -44,8 +44,9 @@ class PosScanController extends Controller
             $overtime = $voucher->overtimeRequest;
             
             // Gabungkan tanggal dengan jam lembur
-            $startTime = Carbon::parse($overtime->date . ' ' . $overtime->start_time);
-            $endTime = Carbon::parse($overtime->date . ' ' . $overtime->end_time);
+            $dateOnly = Carbon::parse($overtime->date)->format('Y-m-d');
+            $startTime = Carbon::parse($dateOnly . ' ' . $overtime->start_time);
+            $endTime = Carbon::parse($dateOnly . ' ' . $overtime->end_time);
 
             // Handle jika jam lembur melewati tengah malam (misal 22:00 - 02:00)
             if ($endTime->lessThan($startTime)) {
