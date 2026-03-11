@@ -13,7 +13,6 @@ class EmployeeVoucherController extends Controller
     {
         $user = $request->user();
 
-        // Validasi: Pastikan user terhubung dengan data employee
         if (!$user->employee_id) {
             return response()->json([
                 'status' => 'error',
@@ -21,17 +20,17 @@ class EmployeeVoucherController extends Controller
             ], 403);
         }
 
-        // Ambil voucher milik karyawan ini
-        // Kita pisahkan yang ACTIVE (Available) ditaruh paling atas
+        // 🌟 PERUBAHAN: Prioritaskan ON_BREAK (sedang dipakai) dan AVAILABLE (belum dipakai)
         $vouchers = Voucher::with(['overtimeRequest'])
             ->where('employee_id', $user->employee_id)
-            ->orderByRaw("FIELD(status, 'AVAILABLE') DESC") // Prioritas status AVAILABLE
+            ->orderByRaw("FIELD(status, 'ON_BREAK', 'AVAILABLE') DESC") 
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Logic Auto-Expired (Sama seperti Admin, kita cek on-the-fly)
         $now = Carbon::now();
         $vouchers->transform(function ($voucher) use ($now) {
+            // Hanya expire-kan yang statusnya masih AVAILABLE
+            // Yang sedang ON_BREAK aman dari auto-expired
             if ($voucher->status === 'AVAILABLE' && $now->gt($voucher->expired_at)) {
                 $voucher->status = 'EXPIRED';
                 $voucher->save();

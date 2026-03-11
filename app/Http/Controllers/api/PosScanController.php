@@ -14,7 +14,8 @@ class PosScanController extends Controller
         $request->validate(['code' => 'required|string']);
         $code = $request->code;
 
-        $voucher = Voucher::with(['employee.department'])->where('code', $code)->first();
+        // Tambahkan relasi overtimeRequest agar kita bisa mengecek jamnya
+        $voucher = Voucher::with(['employee.department', 'overtimeRequest'])->where('code', $code)->first();
 
         if (!$voucher) {
             return response()->json(['status' => 'error', 'message' => 'Kode Voucher Tidak Ditemukan.'], 404);
@@ -34,6 +35,33 @@ class PosScanController extends Controller
             ], 400);
         }
 
+        // ====================================================================
+        // ✨ VALIDASI JAM LEMBUR ✨
+        // Hanya divalidasi saat Karyawan mau Check-In (Status AVAILABLE)
+        // ====================================================================
+        if ($voucher->status === 'AVAILABLE' && $voucher->overtimeRequest) {
+            $now = Carbon::now();
+            $overtime = $voucher->overtimeRequest;
+            
+            // Gabungkan tanggal dengan jam lembur
+            $startTime = Carbon::parse($overtime->date . ' ' . $overtime->start_time);
+            $endTime = Carbon::parse($overtime->date . ' ' . $overtime->end_time);
+
+            // Handle jika jam lembur melewati tengah malam (misal 22:00 - 02:00)
+            if ($endTime->lessThan($startTime)) {
+                $endTime->addDay();
+            }
+
+            // Jika waktu scan (sekarang) berada DI LUAR rentang jam lembur
+            if (!$now->between($startTime, $endTime)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Di luar jam kerja! Voucher hanya aktif pada: ' . $startTime->format('H:i') . ' - ' . $endTime->format('H:i') . ' WIB.',
+                ], 400);
+            }
+        }
+        // ====================================================================
+
         $employee = $voucher->employee;
         $photoUrl = ($employee && !empty($employee->avatar)) 
             ? asset('storage/' . $employee->avatar) 
@@ -51,7 +79,7 @@ class PosScanController extends Controller
             'data' => [
                 'voucher_id' => $voucher->id,
                 'code'       => $voucher->code,
-                'action_type'=> $actionType, // PENTING UNTUK FRONTEND
+                'action_type'=> $actionType,
                 'name'       => $employee->full_name ?? 'Unknown',
                 'nik'        => $employee->nik ?? '-',
                 'dept'       => $employee->department->dept_name ?? 'Unknown Dept',
@@ -105,7 +133,7 @@ class PosScanController extends Controller
             $voucher->update([
                 'status' => $newStatus,
                 'checkout_at' => $now,
-                'redeemed_at' => $now, // Tetap isi kapan voucher di-redeem penuh
+                'redeemed_at' => $now,
                 'is_late' => $isLate
             ]);
 
@@ -129,22 +157,16 @@ class PosScanController extends Controller
         return response()->json(['status' => 'error', 'message' => 'Status voucher tidak valid untuk diproses.'], 400);
     }
 
-    /**
-     * Langkah 3: Ambil Riwayat Scan untuk Dashboard POS
-     */
     public function history(Request $request)
     {
-        // Ambil semua voucher yang sudah diproses di kantin (Bukan AVAILABLE dan Bukan EXPIRED yang belum diapa-apain)
         $vouchers = Voucher::with(['employee.department'])
             ->whereIn('status', ['ON_BREAK', 'REDEEMED', 'OVERBREAK', 'REJECTED'])
-            ->orderBy('updated_at', 'desc') // Urutkan dari aktivitas terbaru
+            ->orderBy('updated_at', 'desc') 
             ->get()
             ->map(function ($v) {
-                // Parsing waktu
                 $checkin = $v->checkin_at ? Carbon::parse($v->checkin_at) : null;
                 $checkout = $v->checkout_at ? Carbon::parse($v->checkout_at) : null;
                 
-                // Hitung durasi jika ada checkin dan checkout
                 $duration = null;
                 if ($checkin && $checkout) {
                     $duration = $checkin->diffInMinutes($checkout);
@@ -152,7 +174,6 @@ class PosScanController extends Controller
 
                 return [
                     'id' => $v->id,
-                    // Format waktu menjadi YYYY-MM-DD HH:mm agar mudah difilter di frontend
                     'checkin' => $checkin ? $checkin->format('Y-m-d H:i') : null,
                     'checkout' => $checkout ? $checkout->format('Y-m-d H:i') : null,
                     'duration' => $duration,

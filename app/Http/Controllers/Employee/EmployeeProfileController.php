@@ -148,7 +148,8 @@ class EmployeeProfileController extends Controller
 
         $nextScheduleFormatted = null;
         if ($todayOvertime) {
-            $nextScheduleFormatted = [
+            // Base scheduled times dari OvertimeRequest
+            $baseSchedule = [
                 'id' => $todayOvertime->id,
                 'date' => Carbon::parse($todayOvertime->date)->format('Y-m-d'),
                 'isToday' => true, 
@@ -158,6 +159,31 @@ class EmployeeProfileController extends Controller
                 'isMealEligible' => $todayOvertime->duration >= 3,
                 'status' => $todayOvertime->status,
             ];
+
+            // Tambahkan actual voucher check-in/out times
+            if ($todayVoucher) {
+                $baseSchedule['actualCheckinAt'] = $todayVoucher->checkin_at 
+                    ? Carbon::parse($todayVoucher->checkin_at)->format('H:i') 
+                    : null;
+                $baseSchedule['actualCheckoutAt'] = $todayVoucher->checkout_at 
+                    ? Carbon::parse($todayVoucher->checkout_at)->format('H:i') 
+                    : null;
+                
+                // Hitung durasi actual jika ada checkin dan checkout
+                if ($todayVoucher->checkin_at && $todayVoucher->checkout_at) {
+                    $checkinTime = Carbon::parse($todayVoucher->checkin_at);
+                    $checkoutTime = Carbon::parse($todayVoucher->checkout_at);
+                    $baseSchedule['actualDurationMinutes'] = $checkinTime->diffInMinutes($checkoutTime);
+                } else {
+                    $baseSchedule['actualDurationMinutes'] = null;
+                }
+            } else {
+                $baseSchedule['actualCheckinAt'] = null;
+                $baseSchedule['actualCheckoutAt'] = null;
+                $baseSchedule['actualDurationMinutes'] = null;
+            }
+
+            $nextScheduleFormatted = $baseSchedule;
         }
 
         return response()->json([
@@ -171,8 +197,8 @@ class EmployeeProfileController extends Controller
                 'voucherReadyCount' => $voucherReadyCount,
                 'activeVoucherStatus' => $todayVoucher ? $todayVoucher->status : null,
                 'activeVoucherCheckinAt' => ($todayVoucher && $todayVoucher->checkin_at) 
-                                            ? Carbon::parse($todayVoucher->checkin_at)->format('Y-m-d H:i:s') 
-                                            : null,
+                            ? Carbon::parse($todayVoucher->checkin_at)->toIso8601String() 
+                            : null,
                 'pendingApprovalCount' => $pendingApprovalCount,
                 'monthlyOvertimeHours' => (int) $monthlyOvertimeHours,
                 'lastOvertimeDate' => $lastOvertime ? Carbon::parse($lastOvertime->date)->diffForHumans() : 'Belum ada',
